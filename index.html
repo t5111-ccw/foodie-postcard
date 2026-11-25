@@ -42,7 +42,10 @@
       #hud-bar { margin-top: 5px; font-size: 11px; gap: 10px; }
     }
 
-    .header-box { border-bottom: 1px solid #2e2e34; padding-bottom: 8px; }
+    .header-box {
+      border-bottom: 1px solid #2e2e34; padding-bottom: 8px;
+      display: flex; justify-content: space-between; align-items: flex-start;
+    }
     h1 { font-size: 17px; color: #fbbf24; letter-spacing: 1px; }
     .sub { font-size: 11.5px; color: #a1a1aa; margin-top: 2px; }
 
@@ -62,14 +65,14 @@
     .field label { font-size: 11.5px; color: #a1a1aa; }
     input[type="text"], textarea, select {
       background: #161619; border: 1px solid #3f3f46; border-radius: 6px;
-      color: #f4f4f5; padding: 8px 9px; font-size: 13px; font-family: inherit;
+      color: #f4f4f5; padding: 7px 9px; font-size: 12.5px; font-family: inherit;
     }
     input:focus, textarea:focus, select:focus { outline: none; border-color: #fbbf24; }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
     .file-btn {
       background: #2e2e36; border: 1px dashed #52525b; border-radius: 6px;
-      padding: 10px 8px; font-size: 12.5px; color: #e4e4e7; cursor: pointer;
+      padding: 9px 8px; font-size: 12.5px; color: #e4e4e7; cursor: pointer;
       text-align: center; transition: 0.2s; display: block;
     }
     .file-btn:hover { border-color: #fbbf24; color: #fbbf24; }
@@ -78,13 +81,18 @@
     .storyboard-box {
       background: #161619; border: 1px solid #3f3f46; border-radius: 6px;
       padding: 8px; font-size: 11.5px; color: #d4d4d8; line-height: 1.5;
-      white-space: pre-line; max-height: 135px; overflow-y: auto;
+      white-space: pre-line; max-height: 130px; overflow-y: auto;
     }
     .btn-mini {
       background: #3f3f46; color: #fbbf24; border: none; border-radius: 4px;
-      padding: 4px 9px; font-size: 11.5px; cursor: pointer; font-weight: 600;
+      padding: 4px 9px; font-size: 11px; cursor: pointer; font-weight: 600;
     }
     .btn-mini:hover { background: #52525b; }
+    .btn-reset {
+      background: #2e2e36; color: #a1a1aa; border: 1px solid #3f3f46;
+      border-radius: 5px; padding: 4px 8px; font-size: 11px; cursor: pointer;
+    }
+    .btn-reset:hover { color: #f87171; border-color: #f87171; }
 
     .btn {
       width: 100%; padding: 11px; border: none; border-radius: 6px;
@@ -95,7 +103,7 @@
     #btnRecord { background: #ef4444; color: white; }
     #btnRecord:hover { background: #dc2626; }
     #btnRecord:disabled { background: #52525b; cursor: not-allowed; }
-    input[type="range"] { width: 100%; accent-color: #fbbf24; height: 24px; }
+    input[type="range"] { width: 100%; accent-color: #fbbf24; height: 22px; }
 
     #canvas-wrap {
       box-shadow: 0 20px 55px rgba(0,0,0,0.9);
@@ -116,8 +124,11 @@
 <body>
   <div id="sidebar">
     <div class="header-box">
-      <h1>吃貨哲學家｜10秒有聲城市明信片</h1>
-      <div class="sub">手機 / 平板 / 電腦通用 · 1照片 ＋ 1音檔 ＋ 1金句</div>
+      <div>
+        <h1>吃貨哲學家｜10秒有聲城市明信片</h1>
+        <div class="sub">1照片 ＋ 1音檔 ＋ 1金句 · 人機協作多模態產出</div>
+      </div>
+      <button id="btnReset" class="btn-reset" title="清除暫存恢復預設值">清空重填</button>
     </div>
 
     <!-- 1. 採集素材上傳 -->
@@ -129,15 +140,15 @@
           <input type="file" id="photoInput" accept="image/*" style="display:none;" />
         </label>
         <label id="lblAudio" class="file-btn">
-          選取配樂音檔 (選用)
+          選取AI配樂音檔 (選用)
           <input type="file" id="audioInput" accept="audio/*" style="display:none;" />
         </label>
       </div>
     </div>
 
-    <!-- 2. 文案、美食名稱與課程資訊 -->
+    <!-- 2. 明信片文案與課程版協作標註 -->
     <div class="section">
-      <div class="sec-title"><span>2. 明信片文案與課程資訊</span><span class="badge">直接渲染上片</span></div>
+      <div class="sec-title"><span>2. 明信片文案與課程版標註</span><span class="badge">直接印上明信片</span></div>
       <div class="grid-2">
         <div class="field">
           <label>地點標記</label>
@@ -154,23 +165,29 @@
           <input type="text" id="inFood" value="豬里肌雞蛋餅" />
         </div>
         <div class="field">
-          <label>作者（班級座號／姓名）</label>
-          <input type="text" id="inAuthor" value="商一甲 01 號" />
+          <label>自訂現場感官關鍵字（副標）</label>
+          <input type="text" id="inSensoryTag" value="微雨清晨 · 焦香酥脆" />
         </div>
       </div>
       <div class="field">
-        <label>課程資訊標註（預設印於明信片落款）</label>
-        <input type="text" id="inCourse" value="國立基隆商工國文科｜吃貨哲學家跨媒介實作" />
-      </div>
-      <div class="field">
-        <label>原創吃貨哲學金句</label>
+        <label>吃貨哲學金句（人機協作共創）</label>
         <textarea id="inQuote" rows="2">如油煎脆皮，有了裂隙，才淌出豐潤多汁。</textarea>
+      </div>
+      <div class="grid-2">
+        <div class="field">
+          <label>吃貨（班級座號／姓名）</label>
+          <input type="text" id="inAuthor" value="商一甲 01 號 王小明" />
+        </div>
+        <div class="field">
+          <label>課程名稱前綴</label>
+          <input type="text" id="inCourse" value="基隆商工《吃貨哲學家》" />
+        </div>
       </div>
     </div>
 
-    <!-- 3. 導演運鏡與感官視覺微調 -->
+    <!-- 3. 自由光影與感官視覺設計 -->
     <div class="section">
-      <div class="sec-title"><span>3. 導演運鏡與感官氣氛設定</span><span class="badge">影像設計</span></div>
+      <div class="sec-title"><span>3. 自由光影與感官視覺設計</span><span class="badge">冷熱甜鹹皆可搭</span></div>
       <div class="grid-2">
         <div class="field">
           <label>敘事路線結構</label>
@@ -189,29 +206,33 @@
       </div>
       <div class="grid-2">
         <div class="field">
-          <label>運鏡語法</label>
-          <select id="selCam">
-            <option value="dolly">溫柔推近（聚焦細節）</option>
-            <option value="breath">微幅呼吸（手持溫度）</option>
-            <option value="crane">低角仰望（崇高儀式）</option>
+          <label>光影色溫調色盤</label>
+          <select id="selMood">
+            <option value="morning">晴朗晨光（暖白明媚）</option>
+            <option value="fresh">清新自然（柔和日常）</option>
+            <option value="rain">陰雨濕潤（冷藍微霧）</option>
+            <option value="sunset">黃昏夕照（橘紅餘暉）</option>
+            <option value="night">深夜暖燈（暗調聚光）</option>
           </select>
         </div>
         <div class="field">
-          <label>環境天氣與光影氣氛</label>
-          <select id="selMood">
-            <option value="morning">七堵晨光（暖白晨曦）</option>
-            <option value="rain">基隆微雨（冷藍細雨）</option>
-            <option value="night">深夜食堂（暖黃聚光）</option>
+          <label>食物感官物理粒子</label>
+          <select id="selSensory">
+            <option value="steam">熱氣蒸騰（熱食升溫蒸汽）</option>
+            <option value="crisp">油亮金光（炸烤酥脆星芒）</option>
+            <option value="chill">沁涼寒氣（冰品冷飲下沉霧）</option>
+            <option value="sweet">糖霜微塵（甜點溫潤光點）</option>
+            <option value="none">純淨寫實（無粒子特效）</option>
           </select>
         </div>
       </div>
       <div class="grid-2">
         <div class="field">
-          <label>食物感官視覺特效</label>
-          <select id="selSensory">
-            <option value="steam">熱氣蒸騰（剛出爐升溫感）</option>
-            <option value="crisp">油亮金光（酥脆表皮光澤）</option>
-            <option value="calm">靜謐微塵（溫潤日常感）</option>
+          <label>運鏡語法</label>
+          <select id="selCam">
+            <option value="dolly">溫柔推近（聚焦細節）</option>
+            <option value="breath">微幅呼吸（手持溫度）</option>
+            <option value="crane">低角仰望（崇高儀式）</option>
           </select>
         </div>
         <div class="field">
@@ -244,14 +265,14 @@
         <button id="btnPlay" class="btn">暫停 / 播放</button>
         <button id="btnRecord" class="btn">匯出 10 秒影片</button>
       </div>
-      <div id="status">準備就緒！手機版可直接在上方預覽並匯出作業。</div>
+      <div id="status">準備就緒！輸入內容會自動暫存於此裝置，避免誤關遺失。</div>
     </div>
   </div>
 
   <div id="stage">
     <div id="canvas-wrap" class="landscape"></div>
     <div id="hud-bar">
-      <span id="hudShot">鏡頭：Shot 1 七堵啟程</span>
+      <span id="hudShot">Shot 1 起點・國立基隆商工</span>
       <span id="hudRes">1920 × 1080 (16:9)</span>
     </div>
   </div>
@@ -261,7 +282,7 @@ const DURATION = 10.0;
 let renderW = 1920;
 let renderH = 1080;
 
-const state = {
+const DEFAULT_STATE = {
   route: 'route',
   aspect: 'landscape',
   cam: 'dolly',
@@ -271,12 +292,41 @@ const state = {
   location: '基隆七堵',
   shop: '橙憶饅鰻早午餐店',
   food: '豬里肌雞蛋餅',
-  author: '商一甲 01 號',
-  course: '國立基隆商工國文科｜吃貨哲學家跨媒介實作',
-  quote: '如油煎脆皮，有了裂隙，才淌出豐潤多汁。',
+  sensoryTag: '微雨清晨 · 焦香酥脆',
+  author: '商一甲 01 號 王小明',
+  course: '基隆商工《吃貨哲學家》',
+  quote: '如油煎脆皮，有了裂隙，才淌出豐潤多汁。'
+};
+
+const state = {
+  ...DEFAULT_STATE,
   userPhotoImg: null,
   audioFileName: '系統內建柔和木琴與紙雕音效'
 };
+
+// 讀取本機瀏覽器暫存（防止學生誤重整頁面）
+const STORAGE_KEY = 'foodie_philosopher_postcard_v2';
+function loadLocalDraft() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    if (saved) Object.assign(state, saved);
+  } catch (_) {}
+}
+function saveLocalDraft() {
+  try {
+    const toSave = {};
+    Object.keys(DEFAULT_STATE).forEach(k => { toSave[k] = state[k]; });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+  } catch (_) {}
+}
+loadLocalDraft();
+
+// 組合標準課程版協作標註字串
+function getCourseCreditLine() {
+  const coursePrefix = (state.course || '基隆商工《吃貨哲學家》').trim();
+  const eaterName = (state.author || '吃貨').trim();
+  return `${coursePrefix}｜ ${eaterName} × AI 協作創作`;
+}
 
 const wrap = document.getElementById('canvas-wrap');
 const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
@@ -314,726 +364,25 @@ rimLight.position.set(-20, 14, -22);
 scene.add(rimLight);
 
 function applyMoodLighting() {
-  if (state.mood === 'morning') {
-    scene.background.setHex(0x29231e); scene.fog.color.setHex(0x29231e); scene.fog.density = 0.007;
-    hemiLight.color.setHex(0xfffbeb); hemiLight.intensity = 0.95;
-    mainLight.color.setHex(0xfff3db); mainLight.intensity = state.sensory === 'crisp' ? 1.65 : 1.38;
-    rimLight.color.setHex(0xfde68a); rimLight.intensity = 0.45;
-  } else if (state.mood === 'rain') {
-    scene.background.setHex(0x16202a); scene.fog.color.setHex(0x16202a); scene.fog.density = 0.014;
-    hemiLight.color.setHex(0xdbeafe); hemiLight.intensity = 0.85;
-    mainLight.color.setHex(0x93c5fd); mainLight.intensity = 1.1;
-    rimLight.color.setHex(0x38bdf8); rimLight.intensity = 0.55;
-  } else {
-    scene.background.setHex(0x121013); scene.fog.color.setHex(0x121013); scene.fog.density = 0.012;
-    hemiLight.color.setHex(0x78350f); hemiLight.intensity = 0.55;
-    mainLight.color.setHex(0xfbbf24); mainLight.intensity = state.sensory === 'crisp' ? 1.85 : 1.55;
-    rimLight.color.setHex(0xf97316); rimLight.intensity = 0.5;
-  }
+  const presets = {
+    morning: { bg: 0x29231e, fog: 0.007, hemi: 0xfffbeb, hemiI: 0.95, main: 0xfff3db, mainI: 1.4, rim: 0xfde68a },
+    fresh:   { bg: 0x222624, fog: 0.006, hemi: 0xf0fdf4, hemiI: 1.0,  main: 0xffffff, mainI: 1.3, rim: 0xa7f3d0 },
+    rain:    { bg: 0x16202a, fog: 0.014, hemi: 0xdbeafe, hemiI: 0.85, main: 0x93c5fd, mainI: 1.1, rim: 0x38bdf8 },
+    sunset:  { bg: 0x2c1a16, fog: 0.009, hemi: 0xffedd5, hemiI: 0.9,  main: 0xfdba74, mainI: 1.45,rim: 0xf43f5e },
+    night:   { bg: 0x121013, fog: 0.012, hemi: 0x78350f, hemiI: 0.55, main: 0xfbbf24, mainI: 1.65,rim: 0xf97316 }
+  };
+  const p = presets[state.mood] || presets.morning;
+  scene.background.setHex(p.bg);
+  scene.fog.color.setHex(p.bg);
+  scene.fog.density = p.fog;
+  hemiLight.color.setHex(p.hemi);
+  hemiLight.intensity = p.hemiI;
+  mainLight.color.setHex(p.main);
+  mainLight.intensity = state.sensory === 'crisp' ? p.mainI + 0.22 : p.mainI;
+  rimLight.color.setHex(p.rim);
 }
 
 function createWoodTexture() {
   const c = document.createElement('canvas'); c.width = 512; c.height = 512;
   const ctx = c.getContext('2d');
-  ctx.fillStyle = '#4a3222'; ctx.fillRect(0, 0, 512, 512);
-  for (let i = 0; i < 220; i++) {
-    const y = Math.random() * 512;
-    ctx.strokeStyle = i % 2 === 0 ? 'rgba(30, 16, 8, 0.28)' : 'rgba(110, 75, 50, 0.22)';
-    ctx.lineWidth = 1 + Math.random() * 3;
-    ctx.beginPath(); ctx.moveTo(0, y);
-    ctx.bezierCurveTo(170, y + (Math.random() - 0.5) * 14, 340, y + (Math.random() - 0.5) * 14, 512, y);
-    ctx.stroke();
-  }
-  const tex = new THREE.CanvasTexture(c);
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(4, 4);
-  return tex;
-}
-
-const tableMesh = new THREE.Mesh(
-  new THREE.PlaneGeometry(160, 160),
-  new THREE.MeshStandardMaterial({ map: createWoodTexture(), roughness: 0.7 })
-);
-tableMesh.rotation.x = -Math.PI / 2; tableMesh.position.y = -0.1; tableMesh.receiveShadow = true;
-scene.add(tableMesh);
-
-function createQiduMapTexture() {
-  const c = document.createElement('canvas'); c.width = 1024; c.height = 1024;
-  const ctx = c.getContext('2d');
-  ctx.fillStyle = '#f7f2e7'; ctx.fillRect(0, 0, 1024, 1024);
-
-  for (let i = 0; i < 6000; i++) {
-    ctx.fillStyle = Math.random() > 0.5 ? 'rgba(160,145,120,0.07)' : 'rgba(255,255,255,0.14)';
-    ctx.fillRect(Math.random() * 1024, Math.random() * 1024, 2, 2);
-  }
-
-  ctx.strokeStyle = '#93c5fd'; ctx.lineWidth = 34; ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.moveTo(80, 920);
-  ctx.quadraticCurveTo(360, 740, 560, 540);
-  ctx.quadraticCurveTo(780, 320, 960, 160);
-  ctx.stroke();
-
-  ctx.strokeStyle = '#e5d5b7'; ctx.lineWidth = 12;
-  ctx.beginPath();
-  ctx.moveTo(220, 820); ctx.lineTo(420, 620); ctx.lineTo(540, 460); ctx.lineTo(740, 360);
-  ctx.moveTo(300, 500); ctx.lineTo(680, 680);
-  ctx.stroke();
-
-  ctx.strokeStyle = '#d97706'; ctx.lineWidth = 6; ctx.setLineDash([16, 12]);
-  ctx.beginPath();
-  ctx.moveTo(240, 800); ctx.lineTo(430, 600); ctx.lineTo(540, 460);
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  ctx.fillStyle = 'rgba(120, 113, 108, 0.55)';
-  ctx.font = 'bold 26px sans-serif';
-  ctx.fillText('QIDU · KEELUNG 基隆七堵尋味地圖', 60, 80);
-  ctx.font = '20px sans-serif';
-  ctx.fillText('KEELUNG RIVER 基隆河', 660, 240);
-
-  ctx.strokeStyle = '#a8a29e'; ctx.lineWidth = 8;
-  ctx.strokeRect(20, 20, 984, 984);
-
-  const tex = new THREE.CanvasTexture(c);
-  tex.anisotropy = 8;
-  return tex;
-}
-
-const mapPlane = new THREE.Mesh(
-  new THREE.BoxGeometry(36, 0.14, 36),
-  [
-    new THREE.MeshStandardMaterial({ color: 0xfdfbf7 }),
-    new THREE.MeshStandardMaterial({ color: 0xfdfbf7 }),
-    new THREE.MeshStandardMaterial({ map: createQiduMapTexture(), roughness: 0.88 }),
-    new THREE.MeshStandardMaterial({ color: 0xe7dec8 }),
-    new THREE.MeshStandardMaterial({ color: 0xfdfbf7 }),
-    new THREE.MeshStandardMaterial({ color: 0xfdfbf7 })
-  ]
-);
-mapPlane.receiveShadow = true; mapPlane.castShadow = true;
-scene.add(mapPlane);
-
-function createMiniLandmarkTexture(type) {
-  const c = document.createElement('canvas'); c.width = 360; c.height = 240;
-  const ctx = c.getContext('2d');
-  ctx.fillStyle = '#fcfaf5';
-  ctx.beginPath(); ctx.roundRect(12, 16, 336, 224, 16); ctx.fill();
-
-  if (type === 'klvs') {
-    ctx.fillStyle = '#dc2626'; ctx.fillRect(28, 80, 304, 140);
-    ctx.fillStyle = '#f3f4f6'; ctx.fillRect(52, 104, 256, 116);
-    ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'].forEach((col, i) => {
-      ctx.fillStyle = col; ctx.fillRect(44 + i * 56, 46, 48, 28);
-    });
-    ctx.fillStyle = '#1f2937'; ctx.font = 'bold 26px "Noto Sans TC", sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText('國立基隆商工', 180, 162);
-    ctx.font = '14px sans-serif'; ctx.fillStyle = '#4b5563';
-    ctx.fillText('出發點 · STARTING POINT', 180, 190);
-  } else {
-    ctx.fillStyle = '#991b1b'; ctx.fillRect(28, 76, 304, 144);
-    ctx.fillStyle = '#f59e0b';
-    ctx.beginPath(); ctx.moveTo(20, 82); ctx.quadraticCurveTo(180, 32, 340, 82); ctx.fill();
-    ctx.fillStyle = '#fef3c7'; ctx.font = 'bold 26px "Noto Sans TC", sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText('七堵慶濟宮', 180, 155);
-    ctx.font = '14px sans-serif'; ctx.fillStyle = '#fde68a';
-    ctx.fillText('老街信仰中心 · QIDU TEMPLE', 180, 185);
-  }
-  return new THREE.CanvasTexture(c);
-}
-
-function buildMiniPopCard(type, x, z) {
-  const pivot = new THREE.Group();
-  pivot.position.set(x, 0.08, z);
-  const geo = new THREE.BoxGeometry(4.2, 2.8, 0.08);
-  geo.translate(0, 1.4, 0);
-  const matFront = new THREE.MeshStandardMaterial({ map: createMiniLandmarkTexture(type), transparent: true, alphaTest: 0.2, roughness: 0.75 });
-  const matBack = new THREE.MeshStandardMaterial({ color: 0xfdfbf7, roughness: 0.9 });
-  const mesh = new THREE.Mesh(geo, [matBack, matBack, matBack, matBack, matFront, matBack]);
-  mesh.castShadow = true; mesh.receiveShadow = true;
-  pivot.add(mesh);
-  pivot.rotation.x = -Math.PI / 2;
-  scene.add(pivot);
-  return pivot;
-}
-
-const klvsPivot = buildMiniPopCard('klvs', -9.5, 10.5);
-const qingjiPivot = buildMiniPopCard('qingji', -3.0, 3.5);
-
-const foodCardPivot = new THREE.Group();
-foodCardPivot.position.set(1.2, 0.09, -1.5);
-scene.add(foodCardPivot);
-
-const postcardCanvas = document.createElement('canvas');
-postcardCanvas.width = 1280;
-postcardCanvas.height = 840;
-const postcardTexture = new THREE.CanvasTexture(postcardCanvas);
-postcardTexture.anisotropy = 8;
-
-const cardGeo = new THREE.BoxGeometry(9.6, 6.3, 0.12);
-cardGeo.translate(0, 3.15, 0);
-const cardFrontMat = new THREE.MeshStandardMaterial({ map: postcardTexture, roughness: 0.65 });
-const cardPaperMat = new THREE.MeshStandardMaterial({ color: 0xfdfbf7, roughness: 0.9 });
-const foodCardMesh = new THREE.Mesh(cardGeo, [cardPaperMat, cardPaperMat, cardPaperMat, cardPaperMat, cardFrontMat, cardPaperMat]);
-foodCardMesh.castShadow = true; foodCardMesh.receiveShadow = true;
-foodCardPivot.add(foodCardMesh);
-
-const hingeTabGeo = new THREE.BoxGeometry(4.2, 0.75, 0.06);
-hingeTabGeo.translate(0, 0.35, -0.3);
-const hingeTabMesh = new THREE.Mesh(hingeTabGeo, cardPaperMat);
-hingeTabMesh.rotation.x = 0.4; hingeTabMesh.castShadow = true;
-foodCardPivot.add(hingeTabMesh);
-
-function drawDefaultFoodIllustration(ctx, x, y, w, h) {
-  const grad = ctx.createLinearGradient(x, y, x + w, y + h);
-  grad.addColorStop(0, '#fef3c7'); grad.addColorStop(1, '#fde68a');
-  ctx.fillStyle = grad; ctx.fillRect(x, y, w, h);
-
-  ctx.fillStyle = '#ffffff';
-  ctx.beginPath(); ctx.ellipse(x + w / 2, y + h * 0.56, w * 0.36, h * 0.28, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = '#d6d3d1'; ctx.lineWidth = 4; ctx.stroke();
-
-  for (let i = -1; i <= 1; i++) {
-    ctx.fillStyle = '#f59e0b';
-    ctx.beginPath(); ctx.roundRect(x + w / 2 - 95 + i * 72, y + h * 0.45, 62, 74, 14); ctx.fill();
-    ctx.fillStyle = '#fef08a';
-    ctx.fillRect(x + w / 2 - 86 + i * 72, y + h * 0.49, 44, 24);
-  }
-  ctx.fillStyle = '#78350f'; ctx.font = 'bold 24px "Noto Sans TC", sans-serif'; ctx.textAlign = 'center';
-  ctx.fillText('（請在下方選取你的美食照片）', x + w / 2, y + h * 0.86);
-}
-
-function renderPostcardCanvas(charProgress = 1.0) {
-  const cw = postcardCanvas.width, ch = postcardCanvas.height;
-  const ctx = postcardCanvas.getContext('2d');
-
-  ctx.fillStyle = '#fdfbf7'; ctx.fillRect(0, 0, cw, ch);
-  ctx.strokeStyle = '#d6d3d1'; ctx.lineWidth = 4; ctx.strokeRect(18, 18, cw - 36, ch - 36);
-
-  const px = 42, py = 42, pw = 680, ph = 756;
-  ctx.save();
-  ctx.beginPath(); ctx.roundRect(px, py, pw, ph, 10); ctx.clip();
-
-  if (state.userPhotoImg) {
-    const img = state.userPhotoImg;
-    const imgRatio = img.width / img.height, boxRatio = pw / ph;
-    let sx = 0, sy = 0, sw = img.width, sh = img.height;
-    if (imgRatio > boxRatio) { sw = img.height * boxRatio; sx = (img.width - sw) / 2; }
-    else { sh = img.width / boxRatio; sy = (img.height - sh) / 2; }
-    ctx.drawImage(img, sx, sy, sw, sh, px, py, pw, ph);
-  } else {
-    drawDefaultFoodIllustration(ctx, px, py, pw, ph);
-  }
-  ctx.restore();
-
-  const rx = 762, rw = cw - rx - 46;
-
-  ctx.save();
-  ctx.translate(cw - 110, 110); ctx.rotate(-0.18);
-  ctx.strokeStyle = 'rgba(185, 28, 28, 0.72)'; ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.arc(0, 0, 54, 0, Math.PI * 2); ctx.stroke();
-  ctx.beginPath(); ctx.arc(0, 0, 46, 0, Math.PI * 2); ctx.stroke();
-  ctx.fillStyle = 'rgba(185, 28, 28, 0.78)';
-  ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'center';
-  ctx.fillText('KEELUNG', 0, -10);
-  ctx.font = 'bold 15px "Noto Sans TC", sans-serif';
-  ctx.fillText(state.location.slice(0, 6), 0, 12);
-  ctx.font = '11px sans-serif';
-  ctx.fillText('POSTCARD', 0, 29);
-  ctx.restore();
-
-  ctx.textAlign = 'left';
-  ctx.fillStyle = '#b45309'; ctx.font = 'bold 25px "Noto Sans TC", sans-serif';
-  ctx.fillText(state.location, rx, 88);
-
-  ctx.fillStyle = '#1c1917'; ctx.font = 'bold 33px "Noto Sans TC", sans-serif';
-  ctx.fillText(state.shop, rx, 132);
-
-  ctx.fillStyle = '#57534e'; ctx.font = '600 22px "Noto Sans TC", sans-serif';
-  ctx.fillText(`品項｜${state.food}`, rx, 172);
-
-  ctx.strokeStyle = '#d6d3d1'; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(rx, 198); ctx.lineTo(rx + rw, 198); ctx.stroke();
-
-  const fullQuote = state.quote.trim();
-  const displayQuote = fullQuote.slice(0, Math.floor(fullQuote.length * charProgress));
-  const fontFamily = state.font === 'serif' ? '"Noto Serif TC", serif' : '"Zen Maru Gothic", sans-serif';
-  ctx.fillStyle = '#1c1917'; ctx.font = `900 43px ${fontFamily}`;
-
-  const lines = [];
-  let currentLine = '';
-  for (let i = 0; i < displayQuote.length; i++) {
-    const chChar = displayQuote[i];
-    currentLine += chChar;
-    if (currentLine.length >= 9 && (chChar === '，' || chChar === '。' || chChar === '、' || currentLine.length >= 11)) {
-      lines.push(currentLine); currentLine = '';
-    }
-  }
-  if (currentLine) lines.push(currentLine);
-
-  let qY = 278;
-  lines.slice(0, 5).forEach((line) => {
-    ctx.fillText(line, rx, qY);
-    qY += 66;
-  });
-
-  ctx.strokeStyle = '#e7e5e4';
-  ctx.beginPath(); ctx.moveTo(rx, ch - 135); ctx.lineTo(rx + rw, ch - 135); ctx.stroke();
-
-  ctx.textAlign = 'right';
-  ctx.fillStyle = '#57534e'; ctx.font = '600 21px "Noto Sans TC", sans-serif';
-  ctx.fillText(`—— ${state.author}`, rx + rw, ch - 94);
-
-  ctx.fillStyle = '#92400e'; ctx.font = '600 17px "Noto Sans TC", sans-serif';
-  ctx.fillText(state.course, rx + rw, ch - 62);
-
-  postcardTexture.needsUpdate = true;
-}
-
-const PARTICLE_COUNT = 200;
-const particleGeo = new THREE.BufferGeometry();
-const particlePos = new Float32Array(PARTICLE_COUNT * 3);
-const particleSpeeds = new Float32Array(PARTICLE_COUNT);
-for (let i = 0; i < PARTICLE_COUNT; i++) {
-  particlePos[i * 3] = (Math.random() - 0.5) * 18;
-  particlePos[i * 3 + 1] = Math.random() * 12;
-  particlePos[i * 3 + 2] = (Math.random() - 0.5) * 14;
-  particleSpeeds[i] = 0.6 + Math.random() * 1.4;
-}
-particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePos, 3));
-const particleMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.2, transparent: true, opacity: 0.5 });
-const envParticles = new THREE.Points(particleGeo, particleMat);
-scene.add(envParticles);
-
-function updateParticles(t) {
-  const pos = envParticles.geometry.attributes.position;
-  if (state.mood === 'rain') {
-    particleMat.color.setHex(0xbae6fd); particleMat.size = 0.14; particleMat.opacity = 0.65;
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
-      const y = 12 - ((t * 9 * particleSpeeds[i] + i) % 12);
-      const x = ((i * 1.7) % 18) - 9 - (12 - y) * 0.15;
-      pos.setXY(i, x, y);
-    }
-  } else if (state.sensory === 'steam') {
-    particleMat.color.setHex(0xffffff); particleMat.size = 0.28; particleMat.opacity = 0.42;
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
-      const y = ((t * 2.1 * particleSpeeds[i] + i * 0.3) % 9.5) + 0.4;
-      const x = Math.sin(t * 2.0 + i) * 0.8 + ((i % 15) - 7) * 0.6;
-      pos.setXY(i, x, y);
-    }
-  } else if (state.sensory === 'crisp') {
-    particleMat.color.setHex(0xfbbf24); particleMat.size = 0.22;
-    particleMat.opacity = 0.45 + Math.sin(t * 6) * 0.2;
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
-      const y = ((t * 0.9 * particleSpeeds[i] + i * 0.4) % 9) + 0.5;
-      const x = Math.cos(t * 1.4 + i) * 0.7 + ((i % 15) - 7) * 0.65;
-      pos.setXY(i, x, y);
-    }
-  } else {
-    particleMat.color.setHex(0xfef3c7); particleMat.size = 0.16; particleMat.opacity = 0.35;
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
-      const y = ((t * 0.6 * particleSpeeds[i] + i * 0.3) % 9) + 0.5;
-      const x = Math.sin(t * 1.1 + i) * 0.5 + ((i % 15) - 7) * 0.7;
-      pos.setXY(i, x, y);
-    }
-  }
-  pos.needsUpdate = true;
-}
-
-let audioCtx = null, audioDest = null, masterGain = null;
-let customAudioBuffer = null, customAudioSource = null, customAudioGain = null;
-let lastBeatIdx = -1, cardPopPlayed = false;
-
-function initAudio() {
-  if (audioCtx) { if (audioCtx.state === 'suspended') audioCtx.resume(); return; }
-  const AC = window.AudioContext || window.webkitAudioContext;
-  audioCtx = new AC();
-  masterGain = audioCtx.createGain(); masterGain.gain.value = 0.75;
-  masterGain.connect(audioCtx.destination);
-  if (audioCtx.createMediaStreamDestination) {
-    audioDest = audioCtx.createMediaStreamDestination();
-    masterGain.connect(audioDest);
-  }
-}
-
-function syncCustomAudio(offsetSec) {
-  if (!audioCtx || !customAudioBuffer) return;
-  if (customAudioSource) {
-    try { customAudioSource.stop(); } catch (_) {}
-    customAudioSource.disconnect(); customAudioSource = null;
-  }
-  if (!isPlaying) return;
-  customAudioSource = audioCtx.createBufferSource();
-  customAudioSource.buffer = customAudioBuffer; customAudioSource.loop = true;
-  customAudioGain = audioCtx.createGain(); customAudioGain.gain.setValueAtTime(0.7, audioCtx.currentTime);
-  customAudioSource.connect(customAudioGain); customAudioGain.connect(masterGain);
-  customAudioSource.start(0, offsetSec % customAudioBuffer.duration);
-}
-
-const NOTES = [523.25, 659.25, 783.99, 659.25, 587.33, 783.99, 880.00, 783.99];
-function playFallbackNote(step, t) {
-  if (!audioCtx || customAudioBuffer) return;
-  const now = audioCtx.currentTime, fade = t > 8.2 ? Math.max(0.05, (10 - t) / 1.8) : 1.0;
-  const osc = audioCtx.createOscillator(), g = audioCtx.createGain();
-  osc.type = 'triangle'; osc.frequency.setValueAtTime(NOTES[step % NOTES.length], now);
-  g.gain.setValueAtTime(0.001, now); g.gain.linearRampToValueAtTime(0.15 * fade, now + 0.03);
-  g.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
-  osc.connect(g); g.connect(masterGain); osc.start(now); osc.stop(now + 0.65);
-}
-
-function playCardPopSound() {
-  if (!audioCtx) return;
-  const now = audioCtx.currentTime, dur = 0.22;
-  const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * dur, audioCtx.sampleRate);
-  const d = buf.getChannelData(0);
-  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (audioCtx.sampleRate * 0.06));
-  const src = audioCtx.createBufferSource(); src.buffer = buf;
-  const flt = audioCtx.createBiquadFilter(); flt.type = 'bandpass'; flt.frequency.value = 1750;
-  const g = audioCtx.createGain(); g.gain.setValueAtTime(0.18, now); g.gain.exponentialRampToValueAtTime(0.001, now + dur);
-  src.connect(flt); flt.connect(g); g.connect(masterGain); src.start(now);
-}
-
-function updateAudio(t) {
-  if (!audioCtx || !isPlaying) return;
-  if (customAudioGain && t > 8.2) customAudioGain.gain.setTargetAtTime(Math.max(0.02, ((10 - t) / 1.8) * 0.7), audioCtx.currentTime, 0.1);
-  const beat = Math.floor(t / 0.625);
-  if (beat !== lastBeatIdx) { lastBeatIdx = beat; playFallbackNote(beat, t); }
-  const popTrigger = state.route === 'route' ? 4.2 : 0.6;
-  if (t >= popTrigger && t < popTrigger + 0.3 && !cardPopPlayed) { cardPopPlayed = true; playCardPopSound(); }
-}
-
-function updateStoryboardSheet() {
-  const camMap = {
-    dolly: '溫柔推近（聚焦料理細節與哲理）',
-    breath: '微幅呼吸（手持溫度與在場感）',
-    crane: '低角仰望（賦予小吃崇高儀式感）'
-  };
-  const moodMap = {
-    morning: '七堵晨光（暖白晨曦光影）',
-    rain: '基隆微雨（冷藍詩意與斜織雨絲）',
-    night: '深夜食堂（暖黃聚光與暗調背景）'
-  };
-  const sensoryMap = {
-    steam: '熱氣蒸騰（剛出爐升溫蒸汽粒子）',
-    crisp: '油亮金光（酥脆表皮高光與星芒）',
-    calm: '靜謐微塵（溫潤日常光塵粒子）'
-  };
-  const aspectText = state.aspect === 'landscape' ? '16:9 橫式明信片 (1920×1080)' : '9:16 直式短影音 (1080×1920)';
-
-  let script = `【吃貨哲學家｜10秒有聲城市明信片設計表】\n`;
-  script += `• 課程與作者：${state.course} / ${state.author}\n`;
-  script += `• 採集店家與品項：${state.location}「${state.shop}」— ${state.food}\n`;
-  script += `• 原創哲學金句：「${state.quote}」\n`;
-  script += `• 影像與光影設定：${aspectText}｜${camMap[state.cam]}｜${moodMap[state.mood]}｜${sensoryMap[state.sensory]}\n`;
-  script += `• 聲音與配樂設計：${state.audioFileName}（8.2s～10.0s 平滑淡出）\n`;
-  script += `──────────────────────────\n`;
-
-  if (state.route === 'route') {
-    script += `[00.0s - 02.2s] Shot 1 起點：俯視紙地圖推近「國立基隆商工」立體紙雕彈起。\n`;
-    script += `[02.2s - 04.2s] Shot 2 尋味：沿七堵街區滑軌移動，掠過「七堵慶濟宮」信仰地標。\n`;
-    script += `[04.2s - 10.0s] Shot 3 悟道：「${state.food}」明信片立體彈起，搭配${sensoryMap[state.sensory].slice(0, 4)}特效，金句逐字浮現並蓋上七堵郵戳定格。`;
-  } else {
-    script += `[00.0s - 01.6s] Shot 1 凝視：全幅聚焦七堵紙地圖，「${state.food}」立體明信片緩緩彈起。\n`;
-    script += `[01.6s - 08.0s] Shot 2 細節：${camMap[state.cam].slice(0, 4)}運鏡搭配${sensoryMap[state.sensory].slice(0, 4)}，吃貨哲學金句逐字浮現。\n`;
-    script += `[08.0s - 10.0s] Shot 3 落款：展示完整店家郵戳與作者落款，配樂淡出定格。`;
-  }
-
-  document.getElementById('storyboardOutput').textContent = script;
-}
-
-document.getElementById('btnCopyPlan').addEventListener('click', () => {
-  const text = document.getElementById('storyboardOutput').textContent;
-  navigator.clipboard.writeText(text).then(() => {
-    statusEl.textContent = '✔ 已複製「導演分鏡設計表」！可直接貼進 Classroom 作業說明。';
-  });
-});
-
-const easeInOutCubic = (x) => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
-const easeOutBack = (x) => 1 + 2.70158 * Math.pow(x - 1, 3) + 1.70158 * Math.pow(x - 1, 2);
-
-const timeLabel = document.getElementById('timeLabel');
-const scrubber = document.getElementById('scrubber');
-const hudShot = document.getElementById('hudShot');
-let lastQuoteProgress = -1;
-
-function updateScene(t) {
-  const isRoute = state.route === 'route';
-  klvsPivot.visible = isRoute;
-  qingjiPivot.visible = isRoute;
-
-  if (isRoute) {
-    const p1 = Math.min(1, Math.max(0, (t - 0.3) / 0.9));
-    klvsPivot.rotation.x = -Math.PI / 2 + (p1 === 0 ? 0 : easeOutBack(p1)) * (Math.PI / 2);
-
-    const p2 = Math.min(1, Math.max(0, (t - 2.2) / 0.9));
-    qingjiPivot.rotation.x = -Math.PI / 2 + (p2 === 0 ? 0 : easeOutBack(p2)) * (Math.PI / 2);
-
-    const p3 = Math.min(1, Math.max(0, (t - 4.2) / 1.1));
-    foodCardPivot.rotation.x = -Math.PI / 2 + (p3 === 0 ? 0 : easeOutBack(p3)) * (Math.PI / 2);
-  } else {
-    const pSolo = Math.min(1, Math.max(0, (t - 0.4) / 1.2));
-    foodCardPivot.rotation.x = -Math.PI / 2 + (pSolo === 0 ? 0 : easeOutBack(pSolo)) * (Math.PI / 2);
-  }
-
-  const textStart = isRoute ? 5.0 : 1.6;
-  const textDur = isRoute ? 3.2 : 4.5;
-  const qProg = Math.min(1, Math.max(0, (t - textStart) / textDur));
-  if (Math.abs(qProg - lastQuoteProgress) > 0.015) {
-    lastQuoteProgress = qProg;
-    renderPostcardCanvas(qProg);
-  }
-
-  const distFactor = state.aspect === 'portrait' ? 1.55 : 1.0;
-  let camPos = new THREE.Vector3(1.2, 4.5, 11.5 * distFactor);
-  let lookAt = new THREE.Vector3(1.2, 3.1, -1.5);
-
-  if (isRoute) {
-    if (t < 2.2) {
-      const a = easeInOutCubic(t / 2.2);
-      camPos.set(THREE.MathUtils.lerp(-11, -9.5, a), THREE.MathUtils.lerp(11, 4.2, a), THREE.MathUtils.lerp(19, 16.5, a) * distFactor);
-      lookAt.set(-9.5, 1.5, 10.5);
-      hudShot.textContent = 'Shot 1 起點・國立基隆商工';
-    } else if (t < 4.2) {
-      const a = easeInOutCubic((t - 2.2) / 2.0);
-      camPos.set(THREE.MathUtils.lerp(-9.5, -3.0, a), THREE.MathUtils.lerp(4.2, 3.8, a), THREE.MathUtils.lerp(16.5, 10.5, a) * distFactor);
-      lookAt.set(THREE.MathUtils.lerp(-9.5, -3.0, a), 1.6, THREE.MathUtils.lerp(10.5, 3.5, a));
-      hudShot.textContent = 'Shot 2 尋味・七堵慶濟宮';
-    } else {
-      const a = easeInOutCubic((t - 4.2) / 5.8);
-      const startZ = 11.2 * distFactor;
-      const endZ = (state.cam === 'dolly' ? 8.4 : 9.8) * distFactor;
-      const startY = state.cam === 'crane' ? 1.8 : 4.2;
-      const endY = state.cam === 'crane' ? 3.6 : 3.3;
-      camPos.set(1.2, THREE.MathUtils.lerp(startY, endY, a), THREE.MathUtils.lerp(startZ, endZ, a));
-      lookAt.set(1.2, 3.15, -1.5);
-      hudShot.textContent = `Shot 3 悟道・${state.food}`;
-    }
-  } else {
-    const a = easeInOutCubic(t / DURATION);
-    const startZ = 12.0 * distFactor;
-    const endZ = (state.cam === 'dolly' ? 8.2 : 10.0) * distFactor;
-    const startY = state.cam === 'crane' ? 1.6 : 4.6;
-    const endY = state.cam === 'crane' ? 3.5 : 3.2;
-    camPos.set(1.2, THREE.MathUtils.lerp(startY, endY, a), THREE.MathUtils.lerp(startZ, endZ, a));
-    lookAt.set(1.2, 3.15, -1.5);
-    hudShot.textContent = `純粹凝視・${state.food}`;
-  }
-
-  if (state.cam === 'breath') {
-    camPos.x += Math.sin(t * 1.8) * 0.14;
-    camPos.y += Math.cos(t * 2.2) * 0.09;
-  }
-
-  camera.position.copy(camPos);
-  camera.lookAt(lookAt);
-
-  updateParticles(t);
-  updateAudio(t);
-
-  timeLabel.textContent = `${t.toFixed(1)}s / ${DURATION.toFixed(1)}s`;
-  scrubber.value = t;
-}
-
-const statusEl = document.getElementById('status');
-
-document.getElementById('photoInput').addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (ev) => {
-    const img = new Image();
-    img.onload = () => {
-      state.userPhotoImg = img;
-      lastQuoteProgress = -1;
-      renderPostcardCanvas(1.0);
-      document.getElementById('lblPhoto').classList.add('loaded');
-      document.getElementById('lblPhoto').childNodes[0].textContent = `✔ 已選取照片 `;
-      statusEl.textContent = '美食照片已套用至上方立體明信片！';
-    };
-    img.src = ev.target.result;
-  };
-  reader.readAsDataURL(file);
-});
-
-document.getElementById('audioInput').addEventListener('change', async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  initAudio();
-  statusEl.textContent = '正在解碼音檔...';
-  customAudioBuffer = await audioCtx.decodeAudioData(await file.arrayBuffer());
-  state.audioFileName = `自訂配樂「${file.name}」＋ 紙雕音效`;
-  updateStoryboardSheet();
-  document.getElementById('lblAudio').classList.add('loaded');
-  document.getElementById('lblAudio').childNodes[0].textContent = `✔ 已選取音檔 `;
-  statusEl.textContent = `已載入音檔：${file.name}`;
-  syncCustomAudio(currentTime);
-});
-
-['inLocation', 'inShop', 'inFood', 'inAuthor', 'inCourse', 'inQuote'].forEach((id) => {
-  document.getElementById(id).addEventListener('input', () => {
-    state.location = document.getElementById('inLocation').value || '基隆七堵';
-    state.shop = document.getElementById('inShop').value || '採集店家';
-    state.food = document.getElementById('inFood').value || '在地美食';
-    state.author = document.getElementById('inAuthor').value || '吃貨哲學家';
-    state.course = document.getElementById('inCourse').value || '國立基隆商工國文科';
-    state.quote = document.getElementById('inQuote').value || '';
-    lastQuoteProgress = -1;
-    renderPostcardCanvas(1.0);
-    updateStoryboardSheet();
-  });
-});
-
-document.getElementById('selRoute').addEventListener('change', (e) => {
-  state.route = e.target.value;
-  cardPopPlayed = false; lastQuoteProgress = -1;
-  updateStoryboardSheet();
-});
-
-document.getElementById('selAspect').addEventListener('change', (e) => {
-  state.aspect = e.target.value;
-  wrap.className = state.aspect;
-  if (state.aspect === 'landscape') {
-    renderW = 1920; renderH = 1080;
-    document.getElementById('hudRes').textContent = '1920 × 1080 (16:9)';
-  } else {
-    renderW = 1080; renderH = 1920;
-    document.getElementById('hudRes').textContent = '1080 × 1920 (9:16)';
-  }
-  camera.aspect = renderW / renderH;
-  camera.updateProjectionMatrix();
-  renderer.setSize(renderW, renderH, false);
-  updateStoryboardSheet();
-});
-
-document.getElementById('selCam').addEventListener('change', (e) => {
-  state.cam = e.target.value;
-  updateStoryboardSheet();
-});
-
-document.getElementById('selMood').addEventListener('change', (e) => {
-  state.mood = e.target.value;
-  applyMoodLighting();
-  updateStoryboardSheet();
-});
-
-document.getElementById('selSensory').addEventListener('change', (e) => {
-  state.sensory = e.target.value;
-  applyMoodLighting();
-  updateStoryboardSheet();
-});
-
-document.getElementById('selFont').addEventListener('change', (e) => {
-  state.font = e.target.value;
-  lastQuoteProgress = -1;
-  renderPostcardCanvas(1.0);
-});
-
-let currentTime = 0, isPlaying = true, isRecording = false, lastMs = performance.now();
-
-document.getElementById('btnPlay').addEventListener('click', () => {
-  if (isRecording) return;
-  initAudio();
-  isPlaying = !isPlaying;
-  lastMs = performance.now();
-  syncCustomAudio(currentTime);
-});
-
-scrubber.addEventListener('input', (e) => {
-  if (isRecording) return;
-  initAudio();
-  isPlaying = false;
-  currentTime = parseFloat(e.target.value);
-  lastBeatIdx = -1; cardPopPlayed = false;
-  syncCustomAudio(currentTime);
-  updateScene(currentTime);
-  renderer.render(scene, camera);
-});
-
-const btnRecord = document.getElementById('btnRecord');
-btnRecord.addEventListener('click', () => {
-  if (isRecording) return;
-  initAudio();
-
-  if (typeof MediaRecorder === 'undefined' || !renderer.domElement.captureStream) {
-    statusEl.textContent = '此手機瀏覽器不支援直接錄製，請按「播放」後使用手機內建「螢幕錄影」錄下上方 10 秒畫面！';
-    return;
-  }
-
-  isRecording = true; isPlaying = true; currentTime = 0;
-  btnRecord.disabled = true;
-  lastBeatIdx = -1; cardPopPlayed = false; lastQuoteProgress = -1;
-  syncCustomAudio(0);
-
-  statusEl.textContent = `正在錄製 10 秒明信片 (${renderW}×${renderH})...`;
-
-  const videoStream = renderer.domElement.captureStream(60);
-  const tracks = [...videoStream.getVideoTracks()];
-  if (audioDest && audioDest.stream.getAudioTracks().length > 0) {
-    tracks.push(...audioDest.stream.getAudioTracks());
-  }
-  const combined = new MediaStream(tracks);
-
-  const mime = [
-    'video/mp4; codecs="avc1.42E01E, mp4a.40.2"',
-    'video/mp4',
-    'video/webm; codecs="vp9, opus"',
-    'video/webm'
-  ].find(m => MediaRecorder.isTypeSupported(m)) || '';
-
-  const recorder = new MediaRecorder(combined, {
-    mimeType: mime,
-    videoBitsPerSecond: 14_000_000,
-    audioBitsPerSecond: 192_000
-  });
-
-  const chunks = [];
-  recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
-  recorder.onstop = () => {
-    const ext = mime.includes('mp4') ? 'mp4' : 'webm';
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob(chunks, { type: mime || 'video/mp4' }));
-    a.download = `吃貨哲學家_${state.shop}_${state.food}.${ext}`;
-    a.click();
-    isRecording = false; btnRecord.disabled = false;
-    if (customAudioSource) { try { customAudioSource.stop(); } catch (_) {} }
-    statusEl.textContent = `匯出成功！若手機無聲音請改用手機「螢幕錄影」錄下上方 10 秒畫面。`;
-  };
-
-  recorder.start();
-  lastMs = performance.now();
-
-  const timer = setInterval(() => {
-    if (currentTime >= DURATION) {
-      clearInterval(timer);
-      setTimeout(() => recorder.stop(), 180);
-    }
-  }, 80);
-});
-
-function animate(now) {
-  requestAnimationFrame(animate);
-  const dt = (now - lastMs) / 1000;
-  lastMs = now;
-  if (isPlaying) {
-    currentTime += dt;
-    if (currentTime > DURATION) {
-      if (isRecording) {
-        currentTime = DURATION;
-      } else {
-        currentTime = 0;
-        lastBeatIdx = -1; cardPopPlayed = false;
-        syncCustomAudio(0);
-      }
-    }
-  }
-  updateScene(currentTime);
-  renderer.render(scene, camera);
-}
-
-applyMoodLighting();
-renderPostcardCanvas(1.0);
-updateStoryboardSheet();
-updateScene(0);
-requestAnimationFrame(animate);
-</script>
-</body>
-</html>
+  ctx.fillStyle = '#4a3222'; ctx.fillRect(0, 0,
