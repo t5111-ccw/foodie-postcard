@@ -15,7 +15,6 @@
       display: flex; height: 100dvh; overflow: hidden;
     }
 
-    /* 電腦版：左右並排（左操作、右預覽） */
     #sidebar {
       width: 410px; background: #1c1c20; border-right: 1px solid #2e2e34;
       padding: 16px; display: flex; flex-direction: column; gap: 10px;
@@ -26,7 +25,6 @@
       justify-content: center; background: #09090b; position: relative; padding: 16px;
     }
 
-    /* 手機與平板直式版：上下分割（上預覽固定、下操作捲動） */
     @media (max-width: 850px) {
       body { flex-direction: column-reverse; }
       #stage {
@@ -108,11 +106,16 @@
     #canvas-wrap {
       box-shadow: 0 20px 55px rgba(0,0,0,0.9);
       border: 1px solid #3f3f46; overflow: hidden; background: #000;
-      transition: all 0.3s ease;
+      transition: all 0.3s ease; position: relative;
     }
     #canvas-wrap.landscape { width: min(88%, 1040px); aspect-ratio: 16 / 9; }
     #canvas-wrap.portrait { height: 86vh; aspect-ratio: 9 / 16; }
     canvas { width: 100% !important; height: 100% !important; display: block; }
+    #error-overlay {
+      position: absolute; inset: 0; background: rgba(0,0,0,0.85); color: #fca5a5;
+      display: none; align-items: center; justify-content: center; padding: 20px;
+      font-size: 13px; text-align: center; line-height: 1.6; z-index: 20;
+    }
     #hud-bar {
       margin-top: 8px; font-size: 12px; color: #a1a1aa;
       display: flex; gap: 18px; align-items: center;
@@ -131,7 +134,6 @@
       <button id="btnReset" class="btn-reset" title="清除暫存恢復預設值">清空重填</button>
     </div>
 
-    <!-- 1. 採集素材上傳 -->
     <div class="section">
       <div class="sec-title"><span>1. 上傳採集素材</span><span class="badge">照片 + 配樂</span></div>
       <div class="grid-2">
@@ -146,7 +148,6 @@
       </div>
     </div>
 
-    <!-- 2. 明信片文案與課程版協作標註 -->
     <div class="section">
       <div class="sec-title"><span>2. 明信片文案與課程版標註</span><span class="badge">直接印上明信片</span></div>
       <div class="grid-2">
@@ -185,7 +186,6 @@
       </div>
     </div>
 
-    <!-- 3. 自由光影與感官視覺設計 -->
     <div class="section">
       <div class="sec-title"><span>3. 自由光影與感官視覺設計</span><span class="badge">冷熱甜鹹皆可搭</span></div>
       <div class="grid-2">
@@ -245,7 +245,6 @@
       </div>
     </div>
 
-    <!-- 4. 自動生成的影片設計表 -->
     <div class="section">
       <div class="sec-title">
         <span>4. 本片導演分鏡設計表（自動同步）</span>
@@ -254,7 +253,6 @@
       <div id="storyboardOutput" class="storyboard-box"></div>
     </div>
 
-    <!-- 5. 預覽與匯出 -->
     <div class="section">
       <div class="sec-title">
         <span>5. 預覽與輸出影片</span>
@@ -270,7 +268,9 @@
   </div>
 
   <div id="stage">
-    <div id="canvas-wrap" class="landscape"></div>
+    <div id="canvas-wrap" class="landscape">
+      <div id="error-overlay"></div>
+    </div>
     <div id="hud-bar">
       <span id="hudShot">Shot 1 起點・國立基隆商工</span>
       <span id="hudRes">1920 × 1080 (16:9)</span>
@@ -278,111 +278,918 @@
   </div>
 
 <script>
-const DURATION = 10.0;
-let renderW = 1920;
-let renderH = 1080;
+window.addEventListener('error', function(e) {
+  const errBox = document.getElementById('error-overlay');
+  if (errBox) {
+    errBox.style.display = 'flex';
+    errBox.innerHTML = '畫面載入異常：' + e.message + '<br>請確認網路連線或重新整理頁面。';
+  }
+});
 
-const DEFAULT_STATE = {
-  route: 'route',
-  aspect: 'landscape',
-  cam: 'dolly',
-  mood: 'morning',
-  sensory: 'steam',
-  font: 'serif',
-  location: '基隆七堵',
-  shop: '橙憶饅鰻早午餐店',
-  food: '豬里肌雞蛋餅',
-  sensoryTag: '微雨清晨 · 焦香酥脆',
-  author: '商一甲 01 號 王小明',
-  course: '基隆商工《吃貨哲學家》',
-  quote: '如油煎脆皮，有了裂隙，才淌出豐潤多汁。'
-};
+(function() {
+  if (typeof THREE === 'undefined') {
+    const errBox = document.getElementById('error-overlay');
+    errBox.style.display = 'flex';
+    errBox.innerHTML = '無法載入 3D 繪圖引擎 (Three.js)，請檢查網路連線後重新整理頁面。';
+    return;
+  }
 
-const state = {
-  ...DEFAULT_STATE,
-  userPhotoImg: null,
-  audioFileName: '系統內建柔和木琴與紙雕音效'
-};
+  const DURATION = 10.0;
+  let renderW = 1920;
+  let renderH = 1080;
 
-// 讀取本機瀏覽器暫存（防止學生誤重整頁面）
-const STORAGE_KEY = 'foodie_philosopher_postcard_v2';
-function loadLocalDraft() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (saved) Object.assign(state, saved);
-  } catch (_) {}
-}
-function saveLocalDraft() {
-  try {
-    const toSave = {};
-    Object.keys(DEFAULT_STATE).forEach(k => { toSave[k] = state[k]; });
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
-  } catch (_) {}
-}
-loadLocalDraft();
-
-// 組合標準課程版協作標註字串
-function getCourseCreditLine() {
-  const coursePrefix = (state.course || '基隆商工《吃貨哲學家》').trim();
-  const eaterName = (state.author || '吃貨').trim();
-  return `${coursePrefix}｜ ${eaterName} × AI 協作創作`;
-}
-
-const wrap = document.getElementById('canvas-wrap');
-const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
-renderer.setSize(renderW, renderH, false);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.08;
-wrap.appendChild(renderer.domElement);
-
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x231f1d);
-scene.fog = new THREE.FogExp2(0x231f1d, 0.008);
-
-const camera = new THREE.PerspectiveCamera(40, renderW / renderH, 0.1, 300);
-scene.add(camera);
-
-const hemiLight = new THREE.HemisphereLight(0xfffbeb, 0x44403c, 0.9);
-scene.add(hemiLight);
-
-const mainLight = new THREE.DirectionalLight(0xfff7ed, 1.35);
-mainLight.position.set(18, 32, 24);
-mainLight.castShadow = true;
-mainLight.shadow.mapSize.set(2048, 2048);
-mainLight.shadow.camera.near = 2;
-mainLight.shadow.camera.far = 90;
-const sd = 28;
-mainLight.shadow.camera.left = -sd; mainLight.shadow.camera.right = sd;
-mainLight.shadow.camera.top = sd; mainLight.shadow.camera.bottom = -sd;
-mainLight.shadow.bias = -0.0005;
-scene.add(mainLight);
-
-const rimLight = new THREE.DirectionalLight(0xbae6fd, 0.45);
-rimLight.position.set(-20, 14, -22);
-scene.add(rimLight);
-
-function applyMoodLighting() {
-  const presets = {
-    morning: { bg: 0x29231e, fog: 0.007, hemi: 0xfffbeb, hemiI: 0.95, main: 0xfff3db, mainI: 1.4, rim: 0xfde68a },
-    fresh:   { bg: 0x222624, fog: 0.006, hemi: 0xf0fdf4, hemiI: 1.0,  main: 0xffffff, mainI: 1.3, rim: 0xa7f3d0 },
-    rain:    { bg: 0x16202a, fog: 0.014, hemi: 0xdbeafe, hemiI: 0.85, main: 0x93c5fd, mainI: 1.1, rim: 0x38bdf8 },
-    sunset:  { bg: 0x2c1a16, fog: 0.009, hemi: 0xffedd5, hemiI: 0.9,  main: 0xfdba74, mainI: 1.45,rim: 0xf43f5e },
-    night:   { bg: 0x121013, fog: 0.012, hemi: 0x78350f, hemiI: 0.55, main: 0xfbbf24, mainI: 1.65,rim: 0xf97316 }
+  const DEFAULT_STATE = {
+    route: 'route',
+    aspect: 'landscape',
+    cam: 'dolly',
+    mood: 'morning',
+    sensory: 'steam',
+    font: 'serif',
+    location: '基隆七堵',
+    shop: '橙憶饅鰻早午餐店',
+    food: '豬里肌雞蛋餅',
+    sensoryTag: '微雨清晨 · 焦香酥脆',
+    author: '商一甲 01 號 王小明',
+    course: '基隆商工《吃貨哲學家》',
+    quote: '如油煎脆皮，有了裂隙，才淌出豐潤多汁。'
   };
-  const p = presets[state.mood] || presets.morning;
-  scene.background.setHex(p.bg);
-  scene.fog.color.setHex(p.bg);
-  scene.fog.density = p.fog;
-  hemiLight.color.setHex(p.hemi);
-  hemiLight.intensity = p.hemiI;
-  mainLight.color.setHex(p.main);
-  mainLight.intensity = state.sensory === 'crisp' ? p.mainI + 0.22 : p.mainI;
-  rimLight.color.setHex(p.rim);
-}
 
-function createWoodTexture() {
-  const c = document.createElement('canvas'); c.width = 512; c.height = 512;
-  const ctx = c.getContext('2d');
-  ctx.fillStyle = '#4a3222'; ctx.fillRect(0, 0,
+  const state = {
+    ...DEFAULT_STATE,
+    userPhotoImg: null,
+    audioFileName: '系統內建柔和木琴與紙雕音效'
+  };
+
+  const STORAGE_KEY = 'foodie_philosopher_postcard_v3';
+  function loadLocalDraft() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+      if (saved) Object.assign(state, saved);
+    } catch (_) {}
+  }
+  function saveLocalDraft() {
+    try {
+      const toSave = {};
+      Object.keys(DEFAULT_STATE).forEach(k => { toSave[k] = state[k]; });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+    } catch (_) {}
+  }
+  loadLocalDraft();
+
+  function getCourseCreditLine() {
+    const coursePrefix = (state.course || '基隆商工《吃貨哲學家》').trim();
+    const eaterName = (state.author || '吃貨').trim();
+    return `${coursePrefix}｜ ${eaterName} × AI 協作創作`;
+  }
+
+  const wrap = document.getElementById('canvas-wrap');
+  const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+  renderer.setSize(renderW, renderH, false);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.08;
+  wrap.appendChild(renderer.domElement);
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x231f1d);
+  scene.fog = new THREE.FogExp2(0x231f1d, 0.008);
+
+  const camera = new THREE.PerspectiveCamera(40, renderW / renderH, 0.1, 300);
+  scene.add(camera);
+
+  const hemiLight = new THREE.HemisphereLight(0xfffbeb, 0x44403c, 0.9);
+  scene.add(hemiLight);
+
+  const mainLight = new THREE.DirectionalLight(0xfff7ed, 1.35);
+  mainLight.position.set(18, 32, 24);
+  mainLight.castShadow = true;
+  mainLight.shadow.mapSize.set(2048, 2048);
+  mainLight.shadow.camera.near = 2;
+  mainLight.shadow.camera.far = 90;
+  const sd = 28;
+  mainLight.shadow.camera.left = -sd; mainLight.shadow.camera.right = sd;
+  mainLight.shadow.camera.top = sd; mainLight.shadow.camera.bottom = -sd;
+  mainLight.shadow.bias = -0.0005;
+  scene.add(mainLight);
+
+  const rimLight = new THREE.DirectionalLight(0xbae6fd, 0.45);
+  rimLight.position.set(-20, 14, -22);
+  scene.add(rimLight);
+
+  function applyMoodLighting() {
+    const presets = {
+      morning: { bg: 0x29231e, fog: 0.007, hemi: 0xfffbeb, hemiI: 0.95, main: 0xfff3db, mainI: 1.4, rim: 0xfde68a },
+      fresh:   { bg: 0x222624, fog: 0.006, hemi: 0xf0fdf4, hemiI: 1.0,  main: 0xffffff, mainI: 1.3, rim: 0xa7f3d0 },
+      rain:    { bg: 0x16202a, fog: 0.014, hemi: 0xdbeafe, hemiI: 0.85, main: 0x93c5fd, mainI: 1.1, rim: 0x38bdf8 },
+      sunset:  { bg: 0x2c1a16, fog: 0.009, hemi: 0xffedd5, hemiI: 0.9,  main: 0xfdba74, mainI: 1.45,rim: 0xf43f5e },
+      night:   { bg: 0x121013, fog: 0.012, hemi: 0x78350f, hemiI: 0.55, main: 0xfbbf24, mainI: 1.65,rim: 0xf97316 }
+    };
+    const p = presets[state.mood] || presets.morning;
+    scene.background.setHex(p.bg);
+    scene.fog.color.setHex(p.bg);
+    scene.fog.density = p.fog;
+    hemiLight.color.setHex(p.hemi);
+    hemiLight.intensity = p.hemiI;
+    mainLight.color.setHex(p.main);
+    mainLight.intensity = state.sensory === 'crisp' ? p.mainI + 0.22 : p.mainI;
+    rimLight.color.setHex(p.rim);
+  }
+
+  function createWoodTexture() {
+    const c = document.createElement('canvas'); c.width = 512; c.height = 512;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#4a3222'; ctx.fillRect(0, 0, 512, 512);
+    for (let i = 0; i < 220; i++) {
+      const y = Math.random() * 512;
+      ctx.strokeStyle = i % 2 === 0 ? 'rgba(30, 16, 8, 0.28)' : 'rgba(110, 75, 50, 0.22)';
+      ctx.lineWidth = 1 + Math.random() * 3;
+      ctx.beginPath(); ctx.moveTo(0, y);
+      ctx.bezierCurveTo(170, y + (Math.random() - 0.5) * 14, 340, y + (Math.random() - 0.5) * 14, 512, y);
+      ctx.stroke();
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(4, 4);
+    return tex;
+  }
+
+  const tableMesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(160, 160),
+    new THREE.MeshStandardMaterial({ map: createWoodTexture(), roughness: 0.7 })
+  );
+  tableMesh.rotation.x = -Math.PI / 2; tableMesh.position.y = -0.1; tableMesh.receiveShadow = true;
+  scene.add(tableMesh);
+
+  function createQiduMapTexture() {
+    const c = document.createElement('canvas'); c.width = 1024; c.height = 1024;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#f7f2e7'; ctx.fillRect(0, 0, 1024, 1024);
+
+    for (let i = 0; i < 6000; i++) {
+      ctx.fillStyle = Math.random() > 0.5 ? 'rgba(160,145,120,0.07)' : 'rgba(255,255,255,0.14)';
+      ctx.fillRect(Math.random() * 1024, Math.random() * 1024, 2, 2);
+    }
+
+    ctx.strokeStyle = '#93c5fd'; ctx.lineWidth = 34; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(80, 920);
+    ctx.quadraticCurveTo(360, 740, 560, 540);
+    ctx.quadraticCurveTo(780, 320, 960, 160);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#e5d5b7'; ctx.lineWidth = 12;
+    ctx.beginPath();
+    ctx.moveTo(220, 820); ctx.lineTo(420, 620); ctx.lineTo(540, 460); ctx.lineTo(740, 360);
+    ctx.moveTo(300, 500); ctx.lineTo(680, 680);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#d97706'; ctx.lineWidth = 6; ctx.setLineDash([16, 12]);
+    ctx.beginPath();
+    ctx.moveTo(240, 800); ctx.lineTo(430, 600); ctx.lineTo(540, 460);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = 'rgba(120, 113, 108, 0.55)';
+    ctx.font = 'bold 26px sans-serif';
+    ctx.fillText('QIDU · KEELUNG 基隆七堵尋味地圖', 60, 80);
+    ctx.font = '20px sans-serif';
+    ctx.fillText('KEELUNG RIVER 基隆河', 660, 240);
+
+    ctx.strokeStyle = '#a8a29e'; ctx.lineWidth = 8;
+    ctx.strokeRect(20, 20, 984, 984);
+
+    const tex = new THREE.CanvasTexture(c);
+    tex.anisotropy = 8;
+    return tex;
+  }
+
+  const mapPlane = new THREE.Mesh(
+    new THREE.BoxGeometry(36, 0.14, 36),
+    [
+      new THREE.MeshStandardMaterial({ color: 0xfdfbf7 }),
+      new THREE.MeshStandardMaterial({ color: 0xfdfbf7 }),
+      new THREE.MeshStandardMaterial({ map: createQiduMapTexture(), roughness: 0.88 }),
+      new THREE.MeshStandardMaterial({ color: 0xe7dec8 }),
+      new THREE.MeshStandardMaterial({ color: 0xfdfbf7 }),
+      new THREE.MeshStandardMaterial({ color: 0xfdfbf7 })
+    ]
+  );
+  mapPlane.receiveShadow = true; mapPlane.castShadow = true;
+  scene.add(mapPlane);
+
+  function createMiniLandmarkTexture(type, onLoadedCallback) {
+    const c = document.createElement('canvas'); c.width = 480; c.height = 340;
+    const ctx = c.getContext('2d');
+    const tex = new THREE.CanvasTexture(c);
+    tex.anisotropy = 8;
+
+    const title = type === 'klvs' ? '國立基隆商工' : '七堵慶濟宮';
+    const sub = type === 'klvs' ? 'STARTING POINT · 出發起點' : 'QIDU TEMPLE · 尋味中繼';
+    const candidates = type === 'klvs'
+      ? ['klvs.jpg', 'klvs.png', 'klvs.jpeg', 'klvs.webp']
+      : ['qingji.jpg', 'qingji.png', 'qingji.jpeg', 'qingji.webp'];
+
+    const drawCard = (photoImg) => {
+      ctx.clearRect(0, 0, c.width, c.height);
+      ctx.fillStyle = '#fcfaf5';
+      if (ctx.roundRect) {
+        ctx.beginPath(); ctx.roundRect(10, 10, c.width - 20, c.height - 14, 16); ctx.fill();
+      } else {
+        ctx.fillRect(10, 10, c.width - 20, c.height - 14);
+      }
+      ctx.strokeStyle = '#d6d3d1'; ctx.lineWidth = 3;
+      ctx.strokeRect(18, 18, c.width - 36, c.height - 32);
+
+      const px = 26, py = 26, pw = c.width - 52, ph = 216;
+      if (photoImg) {
+        ctx.save();
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(px, py, pw, ph, 8);
+        else ctx.rect(px, py, pw, ph);
+        ctx.clip();
+        const rImg = photoImg.width / photoImg.height, rBox = pw / ph;
+        let sx = 0, sy = 0, sw = photoImg.width, sh = photoImg.height;
+        if (rImg > rBox) { sw = photoImg.height * rBox; sx = (photoImg.width - sw) / 2; }
+        else { sh = photoImg.width / rBox; sy = (photoImg.height - sh) / 2; }
+        ctx.drawImage(photoImg, sx, sy, sw, sh, px, py, pw, ph);
+        ctx.restore();
+      } else {
+        ctx.fillStyle = type === 'klvs' ? '#dc2626' : '#991b1b';
+        ctx.fillRect(px, py, pw, ph);
+        if (type === 'klvs') {
+          ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'].forEach((col, i) => {
+            ctx.fillStyle = col; ctx.fillRect(px + 20 + i * 78, py + 24, 64, 24);
+          });
+        } else {
+          ctx.fillStyle = '#f59e0b';
+          ctx.beginPath(); ctx.moveTo(px + 20, py + 70); ctx.quadraticCurveTo(c.width / 2, py + 16, px + pw - 20, py + 70); ctx.fill();
+        }
+      }
+
+      ctx.fillStyle = '#1c1917';
+      ctx.font = 'bold 28px "Noto Sans TC", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(title, c.width / 2, 280);
+
+      ctx.fillStyle = '#92400e';
+      ctx.font = 'bold 14px sans-serif';
+      ctx.fillText(sub, c.width / 2, 306);
+
+      tex.needsUpdate = true;
+      if (onLoadedCallback) onLoadedCallback(tex);
+    };
+
+    drawCard(null);
+    let idx = 0;
+    const tryLoad = () => {
+      if (idx >= candidates.length) return;
+      const img = new Image();
+      img.onload = () => {
+        if (img.naturalWidth > 0) drawCard(img);
+        else { idx++; tryLoad(); }
+      };
+      img.onerror = () => { idx++; tryLoad(); };
+      img.src = candidates[idx] + '?v=' + Date.now();
+    };
+    tryLoad();
+
+    return tex;
+  }
+
+  function buildMiniPopCard(type, x, z) {
+    const pivot = new THREE.Group();
+    pivot.position.set(x, 0.08, z);
+    const geo = new THREE.BoxGeometry(4.4, 3.1, 0.08);
+    geo.translate(0, 1.55, 0);
+    const matFront = new THREE.MeshStandardMaterial({ transparent: true, alphaTest: 0.2, roughness: 0.75 });
+    matFront.map = createMiniLandmarkTexture(type, (newTex) => {
+      matFront.map = newTex;
+      matFront.needsUpdate = true;
+      if (renderer && scene && camera) renderer.render(scene, camera);
+    });
+    const matBack = new THREE.MeshStandardMaterial({ color: 0xfdfbf7, roughness: 0.9 });
+    const mesh = new THREE.Mesh(geo, [matBack, matBack, matBack, matBack, matFront, matBack]);
+    mesh.castShadow = true; mesh.receiveShadow = true;
+    pivot.add(mesh);
+    pivot.rotation.x = -Math.PI / 2;
+    scene.add(pivot);
+    return pivot;
+  }
+
+  const klvsPivot = buildMiniPopCard('klvs', -9.5, 10.5);
+  const qingjiPivot = buildMiniPopCard('qingji', -3.0, 3.5);
+
+  const foodCardPivot = new THREE.Group();
+  foodCardPivot.position.set(1.2, 0.09, -1.5);
+  scene.add(foodCardPivot);
+
+  const postcardCanvas = document.createElement('canvas');
+  postcardCanvas.width = 1280;
+  postcardCanvas.height = 840;
+  const postcardTexture = new THREE.CanvasTexture(postcardCanvas);
+  postcardTexture.anisotropy = 8;
+
+  const cardGeo = new THREE.BoxGeometry(9.6, 6.3, 0.12);
+  cardGeo.translate(0, 3.15, 0);
+  const cardFrontMat = new THREE.MeshStandardMaterial({ map: postcardTexture, roughness: 0.65 });
+  const cardPaperMat = new THREE.MeshStandardMaterial({ color: 0xfdfbf7, roughness: 0.9 });
+  const foodCardMesh = new THREE.Mesh(cardGeo, [cardPaperMat, cardPaperMat, cardPaperMat, cardPaperMat, cardFrontMat, cardPaperMat]);
+  foodCardMesh.castShadow = true; foodCardMesh.receiveShadow = true;
+  foodCardPivot.add(foodCardMesh);
+
+  const hingeTabGeo = new THREE.BoxGeometry(4.2, 0.75, 0.06);
+  hingeTabGeo.translate(0, 0.35, -0.3);
+  const hingeTabMesh = new THREE.Mesh(hingeTabGeo, cardPaperMat);
+  hingeTabMesh.rotation.x = 0.4; hingeTabMesh.castShadow = true;
+  foodCardPivot.add(hingeTabMesh);
+
+  function drawDefaultFoodIllustration(ctx, x, y, w, h) {
+    const grad = ctx.createLinearGradient(x, y, x + w, y + h);
+    grad.addColorStop(0, '#fef3c7'); grad.addColorStop(1, '#fde68a');
+    ctx.fillStyle = grad; ctx.fillRect(x, y, w, h);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.ellipse(x + w / 2, y + h * 0.56, w * 0.36, h * 0.28, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#d6d3d1'; ctx.lineWidth = 4; ctx.stroke();
+
+    for (let i = -1; i <= 1; i++) {
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillRect(x + w / 2 - 95 + i * 72, y + h * 0.45, 62, 74);
+      ctx.fillStyle = '#fef08a';
+      ctx.fillRect(x + w / 2 - 86 + i * 72, y + h * 0.49, 44, 24);
+    }
+    ctx.fillStyle = '#78350f'; ctx.font = 'bold 24px "Noto Sans TC", sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('（請選取你的美食照片）', x + w / 2, y + h * 0.86);
+  }
+
+  function renderPostcardCanvas(charProgress = 1.0) {
+    const cw = postcardCanvas.width, ch = postcardCanvas.height;
+    const ctx = postcardCanvas.getContext('2d');
+
+    ctx.fillStyle = '#fdfbf7'; ctx.fillRect(0, 0, cw, ch);
+    ctx.strokeStyle = '#d6d3d1'; ctx.lineWidth = 4; ctx.strokeRect(18, 18, cw - 36, ch - 36);
+
+    const px = 42, py = 42, pw = 680, ph = 756;
+    ctx.save();
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(px, py, pw, ph, 10);
+    else ctx.rect(px, py, pw, ph);
+    ctx.clip();
+
+    if (state.userPhotoImg) {
+      const img = state.userPhotoImg;
+      const imgRatio = img.width / img.height, boxRatio = pw / ph;
+      let sx = 0, sy = 0, sw = img.width, sh = img.height;
+      if (imgRatio > boxRatio) { sw = img.height * boxRatio; sx = (img.width - sw) / 2; }
+      else { sh = img.width / boxRatio; sy = (img.height - sh) / 2; }
+      ctx.drawImage(img, sx, sy, sw, sh, px, py, pw, ph);
+    } else {
+      drawDefaultFoodIllustration(ctx, px, py, pw, ph);
+    }
+    ctx.restore();
+
+    const rx = 762, rw = cw - rx - 46;
+
+    ctx.save();
+    ctx.translate(cw - 108, 108); ctx.rotate(-0.18);
+    ctx.strokeStyle = 'rgba(185, 28, 28, 0.72)'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(0, 0, 52, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, 44, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = 'rgba(185, 28, 28, 0.78)';
+    ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('KEELUNG', 0, -9);
+    ctx.font = 'bold 14px "Noto Sans TC", sans-serif';
+    ctx.fillText(state.location.slice(0, 6), 0, 12);
+    ctx.font = '11px sans-serif';
+    ctx.fillText('POSTCARD', 0, 28);
+    ctx.restore();
+
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#b45309'; ctx.font = 'bold 24px "Noto Sans TC", sans-serif';
+    ctx.fillText(state.location, rx, 84);
+
+    ctx.fillStyle = '#1c1917'; ctx.font = 'bold 32px "Noto Sans TC", sans-serif';
+    ctx.fillText(state.shop, rx, 126);
+
+    ctx.fillStyle = '#57534e'; ctx.font = '600 20px "Noto Sans TC", sans-serif';
+    const subLine = state.sensoryTag ? `${state.food}｜${state.sensoryTag}` : state.food;
+    ctx.fillText(subLine, rx, 164);
+
+    ctx.strokeStyle = '#d6d3d1'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(rx, 190); ctx.lineTo(rx + rw, 190); ctx.stroke();
+
+    const fullQuote = state.quote.trim();
+    const displayQuote = fullQuote.slice(0, Math.floor(fullQuote.length * charProgress));
+    const fontFamily = state.font === 'serif' ? '"Noto Serif TC", serif' : '"Zen Maru Gothic", sans-serif';
+    ctx.fillStyle = '#1c1917'; ctx.font = `900 42px ${fontFamily}`;
+
+    const lines = [];
+    let currentLine = '';
+    for (let i = 0; i < displayQuote.length; i++) {
+      const chChar = displayQuote[i];
+      currentLine += chChar;
+      if (currentLine.length >= 9 && (chChar === '，' || chChar === '。' || chChar === '、' || currentLine.length >= 11)) {
+        lines.push(currentLine); currentLine = '';
+      }
+    }
+    if (currentLine) lines.push(currentLine);
+
+    let qY = 268;
+    lines.slice(0, 5).forEach((line) => {
+      ctx.fillText(line, rx, qY);
+      qY += 65;
+    });
+
+    ctx.strokeStyle = '#e7e5e4';
+    ctx.beginPath(); ctx.moveTo(rx, ch - 118); ctx.lineTo(rx + rw, ch - 118); ctx.stroke();
+
+    const creditText = getCourseCreditLine();
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#78350f';
+    const creditFontSize = creditText.length > 26 ? 16 : 18;
+    ctx.font = `700 ${creditFontSize}px "Noto Sans TC", sans-serif`;
+    ctx.fillText(creditText, rx + rw, ch - 74);
+
+    postcardTexture.needsUpdate = true;
+  }
+
+  const PARTICLE_COUNT = 200;
+  const particleGeo = new THREE.BufferGeometry();
+  const particlePos = new Float32Array(PARTICLE_COUNT * 3);
+  const particleSpeeds = new Float32Array(PARTICLE_COUNT);
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    particlePos[i * 3] = (Math.random() - 0.5) * 18;
+    particlePos[i * 3 + 1] = Math.random() * 12;
+    particlePos[i * 3 + 2] = (Math.random() - 0.5) * 14;
+    particleSpeeds[i] = 0.6 + Math.random() * 1.4;
+  }
+  particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePos, 3));
+  const particleMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.2, transparent: true, opacity: 0.5 });
+  const envParticles = new THREE.Points(particleGeo, particleMat);
+  scene.add(envParticles);
+
+  function updateParticles(t) {
+    if (state.sensory === 'none' && state.mood !== 'rain') {
+      envParticles.visible = false;
+      return;
+    }
+    envParticles.visible = true;
+    const pos = envParticles.geometry.attributes.position;
+
+    if (state.mood === 'rain' && state.sensory === 'none') {
+      particleMat.color.setHex(0xbae6fd); particleMat.size = 0.14; particleMat.opacity = 0.65;
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        const y = 12 - ((t * 9 * particleSpeeds[i] + i) % 12);
+        const x = ((i * 1.7) % 18) - 9 - (12 - y) * 0.15;
+        pos.setXY(i, x, y);
+      }
+    } else if (state.sensory === 'steam') {
+      particleMat.color.setHex(0xffffff); particleMat.size = 0.28; particleMat.opacity = 0.42;
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        const y = ((t * 2.1 * particleSpeeds[i] + i * 0.3) % 9.5) + 0.4;
+        const x = Math.sin(t * 2.0 + i) * 0.8 + ((i % 15) - 7) * 0.6;
+        pos.setXY(i, x, y);
+      }
+    } else if (state.sensory === 'crisp') {
+      particleMat.color.setHex(0xfbbf24); particleMat.size = 0.22;
+      particleMat.opacity = 0.45 + Math.sin(t * 6) * 0.2;
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        const y = ((t * 0.9 * particleSpeeds[i] + i * 0.4) % 9) + 0.5;
+        const x = Math.cos(t * 1.4 + i) * 0.7 + ((i % 15) - 7) * 0.65;
+        pos.setXY(i, x, y);
+      }
+    } else if (state.sensory === 'chill') {
+      particleMat.color.setHex(0xe0f2fe); particleMat.size = 0.24; particleMat.opacity = 0.52;
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        const y = 8.5 - ((t * 1.3 * particleSpeeds[i] + i * 0.3) % 8.0);
+        const x = Math.sin(t * 1.3 + i) * 0.6 + ((i % 15) - 7) * 0.6;
+        pos.setXY(i, x, y);
+      }
+    } else {
+      particleMat.color.setHex(0xfef3c7); particleMat.size = 0.18; particleMat.opacity = 0.45;
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        const y = ((t * 0.6 * particleSpeeds[i] + i * 0.3) % 9) + 0.5;
+        const x = Math.sin(t * 1.1 + i) * 0.6 + ((i % 15) - 7) * 0.7;
+        pos.setXY(i, x, y);
+      }
+    }
+    pos.needsUpdate = true;
+  }
+
+  let audioCtx = null, audioDest = null, masterGain = null;
+  let customAudioBuffer = null, customAudioSource = null, customAudioGain = null;
+  let lastBeatIdx = -1, cardPopPlayed = false;
+
+  function initAudio() {
+    if (audioCtx) { if (audioCtx.state === 'suspended') audioCtx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    audioCtx = new AC();
+    masterGain = audioCtx.createGain(); masterGain.gain.value = 0.75;
+    masterGain.connect(audioCtx.destination);
+    if (audioCtx.createMediaStreamDestination) {
+      audioDest = audioCtx.createMediaStreamDestination();
+      masterGain.connect(audioDest);
+    }
+  }
+
+  function syncCustomAudio(offsetSec) {
+    if (!audioCtx || !customAudioBuffer) return;
+    if (customAudioSource) {
+      try { customAudioSource.stop(); } catch (_) {}
+      customAudioSource.disconnect(); customAudioSource = null;
+    }
+    if (!isPlaying) return;
+    customAudioSource = audioCtx.createBufferSource();
+    customAudioSource.buffer = customAudioBuffer; customAudioSource.loop = true;
+    customAudioGain = audioCtx.createGain(); customAudioGain.gain.setValueAtTime(0.7, audioCtx.currentTime);
+    customAudioSource.connect(customAudioGain); customAudioGain.connect(masterGain);
+    customAudioSource.start(0, offsetSec % customAudioBuffer.duration);
+  }
+
+  const NOTES = [523.25, 659.25, 783.99, 659.25, 587.33, 783.99, 880.00, 783.99];
+  function playFallbackNote(step, t) {
+    if (!audioCtx || customAudioBuffer) return;
+    const now = audioCtx.currentTime, fade = t > 8.2 ? Math.max(0.05, (10 - t) / 1.8) : 1.0;
+    const osc = audioCtx.createOscillator(), g = audioCtx.createGain();
+    osc.type = 'triangle'; osc.frequency.setValueAtTime(NOTES[step % NOTES.length], now);
+    g.gain.setValueAtTime(0.001, now); g.gain.linearRampToValueAtTime(0.15 * fade, now + 0.03);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+    osc.connect(g); g.connect(masterGain); osc.start(now); osc.stop(now + 0.65);
+  }
+
+  function playCardPopSound() {
+    if (!audioCtx) return;
+    const now = audioCtx.currentTime, dur = 0.22;
+    const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * dur, audioCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (audioCtx.sampleRate * 0.06));
+    const src = audioCtx.createBufferSource(); src.buffer = buf;
+    const flt = audioCtx.createBiquadFilter(); flt.type = 'bandpass'; flt.frequency.value = 1750;
+    const g = audioCtx.createGain(); g.gain.setValueAtTime(0.18, now); g.gain.exponentialRampToValueAtTime(0.001, now + dur);
+    src.connect(flt); flt.connect(g); g.connect(masterGain); src.start(now);
+  }
+
+  function updateAudio(t) {
+    if (!audioCtx || !isPlaying) return;
+    if (customAudioGain && t > 8.2) customAudioGain.gain.setTargetAtTime(Math.max(0.02, ((10 - t) / 1.8) * 0.7), audioCtx.currentTime, 0.1);
+    const beat = Math.floor(t / 0.625);
+    if (beat !== lastBeatIdx) { lastBeatIdx = beat; playFallbackNote(beat, t); }
+    const popTrigger = state.route === 'route' ? 4.2 : 0.6;
+    if (t >= popTrigger && t < popTrigger + 0.3 && !cardPopPlayed) { cardPopPlayed = true; playCardPopSound(); }
+  }
+
+  function updateStoryboardSheet() {
+    const camMap = { dolly: '溫柔推近', breath: '微幅呼吸', crane: '低角仰望' };
+    const moodMap = { morning: '晴朗晨光', fresh: '清新自然', rain: '陰雨濕潤', sunset: '黃昏夕照', night: '深夜暖燈' };
+    const sensoryMap = { steam: '熱氣蒸騰', crisp: '油亮金光', chill: '沁涼寒氣', sweet: '糖霜微塵', none: '純淨寫實' };
+    const aspectText = state.aspect === 'landscape' ? '16:9 橫式' : '9:16 直式';
+
+    let script = `【吃貨哲學家｜10秒有聲城市明信片設計表】
+`;
+    script += `• 創作署名：${getCourseCreditLine()}
+`;
+    script += `• 採集店家與品項：${state.location}「${state.shop}」— ${state.food}（${state.sensoryTag}）
+`;
+    script += `• 吃貨哲學金句：「${state.quote}」
+`;
+    script += `• 視覺與聲音參數：${aspectText}｜${camMap[state.cam]}｜${moodMap[state.mood]}｜${sensoryMap[state.sensory]}｜${state.audioFileName}
+`;
+    script += `──────────────────────────
+`;
+
+    if (state.route === 'route') {
+      script += `[00.0s - 02.2s] Shot 1 起點：俯視紙地圖推近「國立基隆商工」立體紙雕彈起。
+`;
+      script += `[02.2s - 04.2s] Shot 2 尋味：沿七堵街區滑軌移動，掠過「七堵慶濟宮」信仰地標。
+`;
+      script += `[04.2s - 10.0s] Shot 3 悟道：「${state.food}」明信片立體彈起，搭配${sensoryMap[state.sensory]}特效，金句逐字浮現並蓋上郵戳定格。`;
+    } else {
+      script += `[00.0s - 01.6s] Shot 1 凝視：全幅聚焦紙地圖，「${state.food}」立體明信片緩緩彈起。
+`;
+      script += `[01.6s - 08.0s] Shot 2 細節：${camMap[state.cam]}運鏡搭配${sensoryMap[state.sensory]}，吃貨哲學金句逐字浮現。
+`;
+      script += `[08.0s - 10.0s] Shot 3 落款：展示完整郵戳與課程協作署名，配樂淡出定格。`;
+    }
+
+    document.getElementById('storyboardOutput').textContent = script;
+  }
+
+  document.getElementById('btnCopyPlan').addEventListener('click', () => {
+    const text = document.getElementById('storyboardOutput').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      statusEl.textContent = '✔ 已複製「導演分鏡設計表」！可直接貼進 Classroom 作業說明。';
+    });
+  });
+
+  const easeInOutCubic = (x) => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+  const easeOutBack = (x) => 1 + 2.70158 * Math.pow(x - 1, 3) + 1.70158 * Math.pow(x - 1, 2);
+
+  const timeLabel = document.getElementById('timeLabel');
+  const scrubber = document.getElementById('scrubber');
+  const hudShot = document.getElementById('hudShot');
+  let lastQuoteProgress = -1;
+
+  function updateScene(t) {
+    const isRoute = state.route === 'route';
+    klvsPivot.visible = isRoute;
+    qingjiPivot.visible = isRoute;
+
+    if (isRoute) {
+      const p1 = Math.min(1, Math.max(0, (t - 0.3) / 0.9));
+      klvsPivot.rotation.x = -Math.PI / 2 + (p1 === 0 ? 0 : easeOutBack(p1)) * (Math.PI / 2);
+
+      const p2 = Math.min(1, Math.max(0, (t - 2.2) / 0.9));
+      qingjiPivot.rotation.x = -Math.PI / 2 + (p2 === 0 ? 0 : easeOutBack(p2)) * (Math.PI / 2);
+
+      const p3 = Math.min(1, Math.max(0, (t - 4.2) / 1.1));
+      foodCardPivot.rotation.x = -Math.PI / 2 + (p3 === 0 ? 0 : easeOutBack(p3)) * (Math.PI / 2);
+    } else {
+      const pSolo = Math.min(1, Math.max(0, (t - 0.4) / 1.2));
+      foodCardPivot.rotation.x = -Math.PI / 2 + (pSolo === 0 ? 0 : easeOutBack(pSolo)) * (Math.PI / 2);
+    }
+
+    const textStart = isRoute ? 5.0 : 1.6;
+    const textDur = isRoute ? 3.2 : 4.5;
+    const qProg = Math.min(1, Math.max(0, (t - textStart) / textDur));
+    if (Math.abs(qProg - lastQuoteProgress) > 0.015) {
+      lastQuoteProgress = qProg;
+      renderPostcardCanvas(qProg);
+    }
+
+    const distFactor = state.aspect === 'portrait' ? 1.55 : 1.0;
+    let camPos = new THREE.Vector3(1.2, 4.5, 11.5 * distFactor);
+    let lookAt = new THREE.Vector3(1.2, 3.1, -1.5);
+
+    if (isRoute) {
+      if (t < 2.2) {
+        const a = easeInOutCubic(t / 2.2);
+        camPos.set(THREE.MathUtils.lerp(-11, -9.5, a), THREE.MathUtils.lerp(11, 4.2, a), THREE.MathUtils.lerp(19, 16.5, a) * distFactor);
+        lookAt.set(-9.5, 1.5, 10.5);
+        hudShot.textContent = 'Shot 1 起點・國立基隆商工';
+      } else if (t < 4.2) {
+        const a = easeInOutCubic((t - 2.2) / 2.0);
+        camPos.set(THREE.MathUtils.lerp(-9.5, -3.0, a), THREE.MathUtils.lerp(4.2, 3.8, a), THREE.MathUtils.lerp(16.5, 10.5, a) * distFactor);
+        lookAt.set(THREE.MathUtils.lerp(-9.5, -3.0, a), 1.6, THREE.MathUtils.lerp(10.5, 3.5, a));
+        hudShot.textContent = 'Shot 2 尋味・七堵慶濟宮';
+      } else {
+        const a = easeInOutCubic((t - 4.2) / 5.8);
+        const startZ = 11.2 * distFactor;
+        const endZ = (state.cam === 'dolly' ? 8.4 : 9.8) * distFactor;
+        const startY = state.cam === 'crane' ? 1.8 : 4.2;
+        const endY = state.cam === 'crane' ? 3.6 : 3.3;
+        camPos.set(1.2, THREE.MathUtils.lerp(startY, endY, a), THREE.MathUtils.lerp(startZ, endZ, a));
+        lookAt.set(1.2, 3.15, -1.5);
+        hudShot.textContent = `Shot 3 悟道・${state.food}`;
+      }
+    } else {
+      const a = easeInOutCubic(t / DURATION);
+      const startZ = 12.0 * distFactor;
+      const endZ = (state.cam === 'dolly' ? 8.2 : 10.0) * distFactor;
+      const startY = state.cam === 'crane' ? 1.6 : 4.6;
+      const endY = state.cam === 'crane' ? 3.5 : 3.2;
+      camPos.set(1.2, THREE.MathUtils.lerp(startY, endY, a), THREE.MathUtils.lerp(startZ, endZ, a));
+      lookAt.set(1.2, 3.15, -1.5);
+      hudShot.textContent = `純粹凝視・${state.food}`;
+    }
+
+    if (state.cam === 'breath') {
+      camPos.x += Math.sin(t * 1.8) * 0.14;
+      camPos.y += Math.cos(t * 2.2) * 0.09;
+    }
+
+    camera.position.copy(camPos);
+    camera.lookAt(lookAt);
+
+    updateParticles(t);
+    updateAudio(t);
+
+    timeLabel.textContent = `${t.toFixed(1)}s / ${DURATION.toFixed(1)}s`;
+    scrubber.value = t;
+  }
+
+  const statusEl = document.getElementById('status');
+
+  const FIELD_MAP = {
+    inLocation: 'location', inShop: 'shop', inFood: 'food',
+    inSensoryTag: 'sensoryTag', inAuthor: 'author', inCourse: 'course', inQuote: 'quote'
+  };
+
+  Object.entries(FIELD_MAP).forEach(([elId, key]) => {
+    const el = document.getElementById(elId);
+    el.value = state[key];
+    el.addEventListener('input', () => {
+      state[key] = el.value;
+      saveLocalDraft();
+      lastQuoteProgress = -1;
+      renderPostcardCanvas(1.0);
+      updateStoryboardSheet();
+    });
+  });
+
+  document.getElementById('selRoute').value = state.route;
+  document.getElementById('selAspect').value = state.aspect;
+  document.getElementById('selMood').value = state.mood;
+  document.getElementById('selSensory').value = state.sensory;
+  document.getElementById('selCam').value = state.cam;
+  document.getElementById('selFont').value = state.font;
+
+  document.getElementById('btnReset').addEventListener('click', () => {
+    localStorage.removeItem(STORAGE_KEY);
+    Object.assign(state, DEFAULT_STATE);
+    Object.entries(FIELD_MAP).forEach(([elId, key]) => {
+      document.getElementById(elId).value = state[key];
+    });
+    document.getElementById('selRoute').value = state.route;
+    document.getElementById('selAspect').value = state.aspect;
+    document.getElementById('selMood').value = state.mood;
+    document.getElementById('selSensory').value = state.sensory;
+    document.getElementById('selCam').value = state.cam;
+    document.getElementById('selFont').value = state.font;
+    applyMoodLighting();
+    lastQuoteProgress = -1;
+    renderPostcardCanvas(1.0);
+    updateStoryboardSheet();
+    statusEl.textContent = '已清空暫存並恢復預設範例。';
+  });
+
+  document.getElementById('photoInput').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        state.userPhotoImg = img;
+        lastQuoteProgress = -1;
+        renderPostcardCanvas(1.0);
+        document.getElementById('lblPhoto').classList.add('loaded');
+        document.getElementById('lblPhoto').childNodes[0].textContent = `✔ 已選取照片 `;
+        statusEl.textContent = '美食照片已套用至立體明信片！';
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  document.getElementById('audioInput').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    initAudio();
+    statusEl.textContent = '正在解碼音檔...';
+    customAudioBuffer = await audioCtx.decodeAudioData(await file.arrayBuffer());
+    state.audioFileName = `AI再製配樂「${file.name}」＋ 紙雕音效`;
+    updateStoryboardSheet();
+    document.getElementById('lblAudio').classList.add('loaded');
+    document.getElementById('lblAudio').childNodes[0].textContent = `✔ 已選取音檔 `;
+    statusEl.textContent = `已載入音檔：${file.name}`;
+    syncCustomAudio(currentTime);
+  });
+
+  document.getElementById('selRoute').addEventListener('change', (e) => {
+    state.route = e.target.value; saveLocalDraft();
+    cardPopPlayed = false; lastQuoteProgress = -1; updateStoryboardSheet();
+  });
+
+  document.getElementById('selAspect').addEventListener('change', (e) => {
+    state.aspect = e.target.value; saveLocalDraft();
+    wrap.className = state.aspect;
+    if (state.aspect === 'landscape') {
+      renderW = 1920; renderH = 1080;
+      document.getElementById('hudRes').textContent = '1920 × 1080 (16:9)';
+    } else {
+      renderW = 1080; renderH = 1920;
+      document.getElementById('hudRes').textContent = '1080 × 1920 (9:16)';
+    }
+    camera.aspect = renderW / renderH;
+    camera.updateProjectionMatrix();
+    renderer.setSize(renderW, renderH, false);
+    updateStoryboardSheet();
+  });
+
+  document.getElementById('selCam').addEventListener('change', (e) => {
+    state.cam = e.target.value; saveLocalDraft(); updateStoryboardSheet();
+  });
+
+  document.getElementById('selMood').addEventListener('change', (e) => {
+    state.mood = e.target.value; saveLocalDraft(); applyMoodLighting(); updateStoryboardSheet();
+  });
+
+  document.getElementById('selSensory').addEventListener('change', (e) => {
+    state.sensory = e.target.value; saveLocalDraft(); applyMoodLighting(); updateStoryboardSheet();
+  });
+
+  document.getElementById('selFont').addEventListener('change', (e) => {
+    state.font = e.target.value; saveLocalDraft(); lastQuoteProgress = -1; renderPostcardCanvas(1.0);
+  });
+
+  let currentTime = 0, isPlaying = true, isRecording = false, lastMs = performance.now();
+
+  document.getElementById('btnPlay').addEventListener('click', () => {
+    if (isRecording) return;
+    initAudio();
+    isPlaying = !isPlaying;
+    lastMs = performance.now();
+    syncCustomAudio(currentTime);
+  });
+
+  scrubber.addEventListener('input', (e) => {
+    if (isRecording) return;
+    initAudio();
+    isPlaying = false;
+    currentTime = parseFloat(e.target.value);
+    lastBeatIdx = -1; cardPopPlayed = false;
+    syncCustomAudio(currentTime);
+    updateScene(currentTime);
+    renderer.render(scene, camera);
+  });
+
+  const btnRecord = document.getElementById('btnRecord');
+  btnRecord.addEventListener('click', () => {
+    if (isRecording) return;
+    initAudio();
+
+    if (typeof MediaRecorder === 'undefined' || !renderer.domElement.captureStream) {
+      statusEl.textContent = '此手機瀏覽器不支援直接錄製，請按「播放」後使用手機內建「螢幕錄影」錄下上方 10 秒畫面！';
+      return;
+    }
+
+    isRecording = true; isPlaying = true; currentTime = 0;
+    btnRecord.disabled = true;
+    lastBeatIdx = -1; cardPopPlayed = false; lastQuoteProgress = -1;
+    syncCustomAudio(0);
+
+    statusEl.textContent = `正在錄製 10 秒明信片 (${renderW}×${renderH})...`;
+
+    const videoStream = renderer.domElement.captureStream(60);
+    const tracks = [...videoStream.getVideoTracks()];
+    if (audioDest && audioDest.stream.getAudioTracks().length > 0) {
+      tracks.push(...audioDest.stream.getAudioTracks());
+    }
+    const combined = new MediaStream(tracks);
+
+    const mime = [
+      'video/mp4; codecs="avc1.42E01E, mp4a.40.2"',
+      'video/mp4',
+      'video/webm; codecs="vp9, opus"',
+      'video/webm'
+    ].find(m => MediaRecorder.isTypeSupported(m)) || '';
+
+    const recorder = new MediaRecorder(combined, {
+      mimeType: mime,
+      videoBitsPerSecond: 14_000_000,
+      audioBitsPerSecond: 192_000
+    });
+
+    const chunks = [];
+    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+    recorder.onstop = () => {
+      const ext = mime.includes('mp4') ? 'mp4' : 'webm';
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob(chunks, { type: mime || 'video/mp4' }));
+      a.download = `吃貨哲學家_${state.shop}_${state.food}.${ext}`;
+      a.click();
+      isRecording = false; btnRecord.disabled = false;
+      if (customAudioSource) { try { customAudioSource.stop(); } catch (_) {} }
+      statusEl.textContent = `匯出成功！若手機無聲音請改用手機「螢幕錄影」錄下上方 10 秒畫面。`;
+    };
+
+    recorder.start();
+    lastMs = performance.now();
+
+    const timer = setInterval(() => {
+      if (currentTime >= DURATION) {
+        clearInterval(timer);
+        setTimeout(() => recorder.stop(), 180);
+      }
+    }, 80);
+  });
+
+  function animate(now) {
+    requestAnimationFrame(animate);
+    const dt = (now - lastMs) / 1000;
+    lastMs = now;
+    if (isPlaying) {
+      currentTime += dt;
+      if (currentTime > DURATION) {
+        if (isRecording) {
+          currentTime = DURATION;
+        } else {
+          currentTime = 0;
+          lastBeatIdx = -1; cardPopPlayed = false;
+          syncCustomAudio(0);
+        }
+      }
+    }
+    updateScene(currentTime);
+    renderer.render(scene, camera);
+  }
+
+  applyMoodLighting();
+  renderPostcardCanvas(1.0);
+  updateStoryboardSheet();
+  updateScene(0);
+  requestAnimationFrame(animate);
+})();
+</script>
+</body>
+</html>
