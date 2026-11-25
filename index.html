@@ -112,9 +112,9 @@
     #canvas-wrap.portrait { height: 86vh; aspect-ratio: 9 / 16; }
     canvas { width: 100% !important; height: 100% !important; display: block; }
     #error-overlay {
-      position: absolute; inset: 0; background: rgba(0,0,0,0.85); color: #fca5a5;
-      display: none; align-items: center; justify-content: center; padding: 20px;
-      font-size: 13px; text-align: center; line-height: 1.6; z-index: 20;
+      position: absolute; inset: 0; background: rgba(15,15,18,0.92); color: #fca5a5;
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      padding: 24px; font-size: 13.5px; text-align: center; line-height: 1.65; z-index: 20;
     }
     #hud-bar {
       margin-top: 8px; font-size: 12px; color: #a1a1aa;
@@ -282,21 +282,21 @@ window.addEventListener('error', function(e) {
   const errBox = document.getElementById('error-overlay');
   if (errBox) {
     errBox.style.display = 'flex';
-    errBox.innerHTML = '畫面載入異常：' + e.message + '<br>請確認網路連線或重新整理頁面。';
+    errBox.innerHTML = '<strong>系統執行異常</strong><br>' + (e.message || '未知錯誤') + '<br><small>請確認網路連線或重新整理頁面。</small>';
   }
 });
 
 (function() {
-  if (typeof THREE === 'undefined') {
-    const errBox = document.getElementById('error-overlay');
-    errBox.style.display = 'flex';
-    errBox.innerHTML = '無法載入 3D 繪圖引擎 (Three.js)，請檢查網路連線後重新整理頁面。';
-    return;
-  }
-
   const DURATION = 10.0;
   let renderW = 1920;
   let renderH = 1080;
+  let currentTime = 0;
+  let isPlaying = true;
+  let isRecording = false;
+  let lastMs = performance.now();
+  let lastQuoteProgress = -1;
+  let lastBeatIdx = -1;
+  let cardPopPlayed = false;
 
   const DEFAULT_STATE = {
     route: 'route',
@@ -320,11 +320,18 @@ window.addEventListener('error', function(e) {
     audioFileName: '系統內建柔和木琴與紙雕音效'
   };
 
-  const STORAGE_KEY = 'foodie_philosopher_postcard_v3';
+  const STORAGE_KEY = 'foodie_philosopher_postcard_v4';
   function loadLocalDraft() {
     try {
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-      if (saved) Object.assign(state, saved);
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw);
+        if (saved && typeof saved === 'object') {
+          Object.keys(DEFAULT_STATE).forEach(k => {
+            if (typeof saved[k] === 'string') state[k] = saved[k];
+          });
+        }
+      }
     } catch (_) {}
   }
   function saveLocalDraft() {
@@ -342,13 +349,84 @@ window.addEventListener('error', function(e) {
     return `${coursePrefix}｜ ${eaterName} × AI 協作創作`;
   }
 
+  // ============================================================================
+  // 第一階段：優先初始化左側表單與「導演分鏡設計表」（完全獨立於 WebGL，保證 100% 顯示）
+  // ============================================================================
+  const statusEl = document.getElementById('status');
+  const timeLabel = document.getElementById('timeLabel');
+  const scrubber = document.getElementById('scrubber');
+  const hudShot = document.getElementById('hudShot');
   const wrap = document.getElementById('canvas-wrap');
-  const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+
+  function updateStoryboardSheet() {
+    const camMap = { dolly: '溫柔推近', breath: '微幅呼吸', crane: '低角仰望' };
+    const moodMap = { morning: '晴朗晨光', fresh: '清新自然', rain: '陰雨濕潤', sunset: '黃昏夕照', night: '深夜暖燈' };
+    const sensoryMap = { steam: '熱氣蒸騰', crisp: '油亮金光', chill: '沁涼寒氣', sweet: '糖霜微塵', none: '純淨寫實' };
+    const aspectText = state.aspect === 'landscape' ? '16:9 橫式' : '9:16 直式';
+
+    const lines = [
+      '【吃貨哲學家｜10秒有聲城市明信片設計表】',
+      '• 創作署名：' + getCourseCreditLine(),
+      '• 採集店家與品項：' + state.location + '「' + state.shop + '」— ' + state.food + '（' + state.sensoryTag + '）',
+      '• 吃貨哲學金句：「' + state.quote + '」',
+      '• 視覺與聲音參數：' + aspectText + '｜' + (camMap[state.cam] || '溫柔推近') + '｜' + (moodMap[state.mood] || '晴朗晨光') + '｜' + (sensoryMap[state.sensory] || '熱氣蒸騰') + '｜' + state.audioFileName,
+      '──────────────────────────'
+    ];
+
+    if (state.route === 'route') {
+      lines.push('[00.0s - 02.2s] Shot 1 起點：俯視紙地圖推近「國立基隆商工」立體紙雕彈起。');
+      lines.push('[02.2s - 04.2s] Shot 2 尋味：沿七堵街區滑軌移動，掠過「七堵慶濟宮」信仰地標。');
+      lines.push('[04.2s - 10.0s] Shot 3 悟道：「' + state.food + '」明信片立體彈起，搭配' + (sensoryMap[state.sensory] || '熱氣蒸騰') + '特效，金句逐字浮現並蓋上郵戳定格。');
+    } else {
+      lines.push('[00.0s - 01.6s] Shot 1 凝視：全幅聚焦紙地圖，「' + state.food + '」立體明信片緩緩彈起。');
+      lines.push('[01.6s - 08.0s] Shot 2 細節：' + (camMap[state.cam] || '溫柔推近') + '運鏡搭配' + (sensoryMap[state.sensory] || '熱氣蒸騰') + '，吃貨哲學金句逐字浮現。');
+      lines.push('[08.0s - 10.0s] Shot 3 落款：展示完整郵戳與課程協作署名，配樂淡出定格。');
+    }
+
+    const outEl = document.getElementById('storyboardOutput');
+    if (outEl) outEl.textContent = lines.join('\n');
+  }
+
+  // 立即生成第一版設計表
+  updateStoryboardSheet();
+
+  document.getElementById('btnCopyPlan').addEventListener('click', () => {
+    const text = document.getElementById('storyboardOutput').textContent;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        statusEl.textContent = '✔ 已複製「導演分鏡設計表」！可直接貼進 Classroom 作業說明。';
+      });
+    }
+  });
+
+  // ============================================================================
+  // 第二階段：啟動 3D 繪圖引擎（加入雙重相容與錯誤捕捉保護）
+  // ============================================================================
+  if (typeof THREE === 'undefined') {
+    const errBox = document.getElementById('error-overlay');
+    errBox.style.display = 'flex';
+    errBox.innerHTML = '<strong>無法載入 3D 繪圖引擎 (Three.js)</strong><br>請確認網路連線是否暢通，或重新整理頁面。<br><small>（左側分鏡設計表功能仍可正常使用）</small>';
+    return;
+  }
+
+  let renderer = null;
+  try {
+    renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+  } catch (e1) {
+    try {
+      // 降級相容模式（關閉抗鋸齒，適配舊電腦或無痕硬體限制）
+      renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
+    } catch (e2) {
+      const errBox = document.getElementById('error-overlay');
+      errBox.style.display = 'flex';
+      errBox.innerHTML = '<strong>此瀏覽器視窗未開啟 3D 硬體加速 (WebGL)</strong><br>原因：' + e2.message + '<br><small>請改用一般視窗開啟，或至瀏覽器設定開啟「圖形加速 / 硬體加速」。</small>';
+      return;
+    }
+  }
+
   renderer.setSize(renderW, renderH, false);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.08;
   wrap.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
@@ -364,7 +442,7 @@ window.addEventListener('error', function(e) {
   const mainLight = new THREE.DirectionalLight(0xfff7ed, 1.35);
   mainLight.position.set(18, 32, 24);
   mainLight.castShadow = true;
-  mainLight.shadow.mapSize.set(2048, 2048);
+  mainLight.shadow.mapSize.set(1024, 1024);
   mainLight.shadow.camera.near = 2;
   mainLight.shadow.camera.far = 90;
   const sd = 28;
@@ -458,9 +536,7 @@ window.addEventListener('error', function(e) {
     ctx.strokeStyle = '#a8a29e'; ctx.lineWidth = 8;
     ctx.strokeRect(20, 20, 984, 984);
 
-    const tex = new THREE.CanvasTexture(c);
-    tex.anisotropy = 8;
-    return tex;
+    return new THREE.CanvasTexture(c);
   }
 
   const mapPlane = new THREE.Mesh(
@@ -481,7 +557,6 @@ window.addEventListener('error', function(e) {
     const c = document.createElement('canvas'); c.width = 480; c.height = 340;
     const ctx = c.getContext('2d');
     const tex = new THREE.CanvasTexture(c);
-    tex.anisotropy = 8;
 
     const title = type === 'klvs' ? '國立基隆商工' : '七堵慶濟宮';
     const sub = type === 'klvs' ? 'STARTING POINT · 出發起點' : 'QIDU TEMPLE · 尋味中繼';
@@ -492,21 +567,14 @@ window.addEventListener('error', function(e) {
     const drawCard = (photoImg) => {
       ctx.clearRect(0, 0, c.width, c.height);
       ctx.fillStyle = '#fcfaf5';
-      if (ctx.roundRect) {
-        ctx.beginPath(); ctx.roundRect(10, 10, c.width - 20, c.height - 14, 16); ctx.fill();
-      } else {
-        ctx.fillRect(10, 10, c.width - 20, c.height - 14);
-      }
+      ctx.fillRect(10, 10, c.width - 20, c.height - 14);
       ctx.strokeStyle = '#d6d3d1'; ctx.lineWidth = 3;
       ctx.strokeRect(18, 18, c.width - 36, c.height - 32);
 
       const px = 26, py = 26, pw = c.width - 52, ph = 216;
       if (photoImg) {
         ctx.save();
-        ctx.beginPath();
-        if (ctx.roundRect) ctx.roundRect(px, py, pw, ph, 8);
-        else ctx.rect(px, py, pw, ph);
-        ctx.clip();
+        ctx.beginPath(); ctx.rect(px, py, pw, ph); ctx.clip();
         const rImg = photoImg.width / photoImg.height, rBox = pw / ph;
         let sx = 0, sy = 0, sw = photoImg.width, sh = photoImg.height;
         if (rImg > rBox) { sw = photoImg.height * rBox; sx = (photoImg.width - sw) / 2; }
@@ -561,7 +629,7 @@ window.addEventListener('error', function(e) {
     pivot.position.set(x, 0.08, z);
     const geo = new THREE.BoxGeometry(4.4, 3.1, 0.08);
     geo.translate(0, 1.55, 0);
-    const matFront = new THREE.MeshStandardMaterial({ transparent: true, alphaTest: 0.2, roughness: 0.75 });
+    const matFront = new THREE.MeshStandardMaterial({ roughness: 0.75 });
     matFront.map = createMiniLandmarkTexture(type, (newTex) => {
       matFront.map = newTex;
       matFront.needsUpdate = true;
@@ -587,7 +655,6 @@ window.addEventListener('error', function(e) {
   postcardCanvas.width = 1280;
   postcardCanvas.height = 840;
   const postcardTexture = new THREE.CanvasTexture(postcardCanvas);
-  postcardTexture.anisotropy = 8;
 
   const cardGeo = new THREE.BoxGeometry(9.6, 6.3, 0.12);
   cardGeo.translate(0, 3.15, 0);
@@ -631,10 +698,7 @@ window.addEventListener('error', function(e) {
 
     const px = 42, py = 42, pw = 680, ph = 756;
     ctx.save();
-    ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(px, py, pw, ph, 10);
-    else ctx.rect(px, py, pw, ph);
-    ctx.clip();
+    ctx.beginPath(); ctx.rect(px, py, pw, ph); ctx.clip();
 
     if (state.userPhotoImg) {
       const img = state.userPhotoImg;
@@ -659,17 +723,17 @@ window.addEventListener('error', function(e) {
     ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center';
     ctx.fillText('KEELUNG', 0, -9);
     ctx.font = 'bold 14px "Noto Sans TC", sans-serif';
-    ctx.fillText(state.location.slice(0, 6), 0, 12);
+    ctx.fillText((state.location || '基隆七堵').slice(0, 6), 0, 12);
     ctx.font = '11px sans-serif';
     ctx.fillText('POSTCARD', 0, 28);
     ctx.restore();
 
     ctx.textAlign = 'left';
     ctx.fillStyle = '#b45309'; ctx.font = 'bold 24px "Noto Sans TC", sans-serif';
-    ctx.fillText(state.location, rx, 84);
+    ctx.fillText(state.location || '基隆七堵', rx, 84);
 
     ctx.fillStyle = '#1c1917'; ctx.font = 'bold 32px "Noto Sans TC", sans-serif';
-    ctx.fillText(state.shop, rx, 126);
+    ctx.fillText(state.shop || '', rx, 126);
 
     ctx.fillStyle = '#57534e'; ctx.font = '600 20px "Noto Sans TC", sans-serif';
     const subLine = state.sensoryTag ? `${state.food}｜${state.sensoryTag}` : state.food;
@@ -678,7 +742,7 @@ window.addEventListener('error', function(e) {
     ctx.strokeStyle = '#d6d3d1'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(rx, 190); ctx.lineTo(rx + rw, 190); ctx.stroke();
 
-    const fullQuote = state.quote.trim();
+    const fullQuote = (state.quote || '').trim();
     const displayQuote = fullQuote.slice(0, Math.floor(fullQuote.length * charProgress));
     const fontFamily = state.font === 'serif' ? '"Noto Serif TC", serif' : '"Zen Maru Gothic", sans-serif';
     ctx.fillStyle = '#1c1917'; ctx.font = `900 42px ${fontFamily}`;
@@ -778,11 +842,11 @@ window.addEventListener('error', function(e) {
 
   let audioCtx = null, audioDest = null, masterGain = null;
   let customAudioBuffer = null, customAudioSource = null, customAudioGain = null;
-  let lastBeatIdx = -1, cardPopPlayed = false;
 
   function initAudio() {
     if (audioCtx) { if (audioCtx.state === 'suspended') audioCtx.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
     audioCtx = new AC();
     masterGain = audioCtx.createGain(); masterGain.gain.value = 0.75;
     masterGain.connect(audioCtx.destination);
@@ -838,56 +902,8 @@ window.addEventListener('error', function(e) {
     if (t >= popTrigger && t < popTrigger + 0.3 && !cardPopPlayed) { cardPopPlayed = true; playCardPopSound(); }
   }
 
-  function updateStoryboardSheet() {
-    const camMap = { dolly: '溫柔推近', breath: '微幅呼吸', crane: '低角仰望' };
-    const moodMap = { morning: '晴朗晨光', fresh: '清新自然', rain: '陰雨濕潤', sunset: '黃昏夕照', night: '深夜暖燈' };
-    const sensoryMap = { steam: '熱氣蒸騰', crisp: '油亮金光', chill: '沁涼寒氣', sweet: '糖霜微塵', none: '純淨寫實' };
-    const aspectText = state.aspect === 'landscape' ? '16:9 橫式' : '9:16 直式';
-
-    let script = `【吃貨哲學家｜10秒有聲城市明信片設計表】
-`;
-    script += `• 創作署名：${getCourseCreditLine()}
-`;
-    script += `• 採集店家與品項：${state.location}「${state.shop}」— ${state.food}（${state.sensoryTag}）
-`;
-    script += `• 吃貨哲學金句：「${state.quote}」
-`;
-    script += `• 視覺與聲音參數：${aspectText}｜${camMap[state.cam]}｜${moodMap[state.mood]}｜${sensoryMap[state.sensory]}｜${state.audioFileName}
-`;
-    script += `──────────────────────────
-`;
-
-    if (state.route === 'route') {
-      script += `[00.0s - 02.2s] Shot 1 起點：俯視紙地圖推近「國立基隆商工」立體紙雕彈起。
-`;
-      script += `[02.2s - 04.2s] Shot 2 尋味：沿七堵街區滑軌移動，掠過「七堵慶濟宮」信仰地標。
-`;
-      script += `[04.2s - 10.0s] Shot 3 悟道：「${state.food}」明信片立體彈起，搭配${sensoryMap[state.sensory]}特效，金句逐字浮現並蓋上郵戳定格。`;
-    } else {
-      script += `[00.0s - 01.6s] Shot 1 凝視：全幅聚焦紙地圖，「${state.food}」立體明信片緩緩彈起。
-`;
-      script += `[01.6s - 08.0s] Shot 2 細節：${camMap[state.cam]}運鏡搭配${sensoryMap[state.sensory]}，吃貨哲學金句逐字浮現。
-`;
-      script += `[08.0s - 10.0s] Shot 3 落款：展示完整郵戳與課程協作署名，配樂淡出定格。`;
-    }
-
-    document.getElementById('storyboardOutput').textContent = script;
-  }
-
-  document.getElementById('btnCopyPlan').addEventListener('click', () => {
-    const text = document.getElementById('storyboardOutput').textContent;
-    navigator.clipboard.writeText(text).then(() => {
-      statusEl.textContent = '✔ 已複製「導演分鏡設計表」！可直接貼進 Classroom 作業說明。';
-    });
-  });
-
   const easeInOutCubic = (x) => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
   const easeOutBack = (x) => 1 + 2.70158 * Math.pow(x - 1, 3) + 1.70158 * Math.pow(x - 1, 2);
-
-  const timeLabel = document.getElementById('timeLabel');
-  const scrubber = document.getElementById('scrubber');
-  const hudShot = document.getElementById('hudShot');
-  let lastQuoteProgress = -1;
 
   function updateScene(t) {
     const isRoute = state.route === 'route';
@@ -967,8 +983,7 @@ window.addEventListener('error', function(e) {
     scrubber.value = t;
   }
 
-  const statusEl = document.getElementById('status');
-
+  // 綁定所有輸入框與下拉選單
   const FIELD_MAP = {
     inLocation: 'location', inShop: 'shop', inFood: 'food',
     inSensoryTag: 'sensoryTag', inAuthor: 'author', inCourse: 'course', inQuote: 'quote'
@@ -994,7 +1009,7 @@ window.addEventListener('error', function(e) {
   document.getElementById('selFont').value = state.font;
 
   document.getElementById('btnReset').addEventListener('click', () => {
-    localStorage.removeItem(STORAGE_KEY);
+    try { localStorage.removeItem(STORAGE_KEY); } catch (_) {}
     Object.assign(state, DEFAULT_STATE);
     Object.entries(FIELD_MAP).forEach(([elId, key]) => {
       document.getElementById(elId).value = state[key];
@@ -1023,7 +1038,7 @@ window.addEventListener('error', function(e) {
         lastQuoteProgress = -1;
         renderPostcardCanvas(1.0);
         document.getElementById('lblPhoto').classList.add('loaded');
-        document.getElementById('lblPhoto').childNodes[0].textContent = `✔ 已選取照片 `;
+        document.getElementById('lblPhoto').childNodes[0].textContent = '✔ 已選取照片 ';
         statusEl.textContent = '美食照片已套用至立體明信片！';
       };
       img.src = ev.target.result;
@@ -1040,7 +1055,7 @@ window.addEventListener('error', function(e) {
     state.audioFileName = `AI再製配樂「${file.name}」＋ 紙雕音效`;
     updateStoryboardSheet();
     document.getElementById('lblAudio').classList.add('loaded');
-    document.getElementById('lblAudio').childNodes[0].textContent = `✔ 已選取音檔 `;
+    document.getElementById('lblAudio').childNodes[0].textContent = '✔ 已選取音檔 ';
     statusEl.textContent = `已載入音檔：${file.name}`;
     syncCustomAudio(currentTime);
   });
@@ -1082,8 +1097,6 @@ window.addEventListener('error', function(e) {
     state.font = e.target.value; saveLocalDraft(); lastQuoteProgress = -1; renderPostcardCanvas(1.0);
   });
 
-  let currentTime = 0, isPlaying = true, isRecording = false, lastMs = performance.now();
-
   document.getElementById('btnPlay').addEventListener('click', () => {
     if (isRecording) return;
     initAudio();
@@ -1109,7 +1122,7 @@ window.addEventListener('error', function(e) {
     initAudio();
 
     if (typeof MediaRecorder === 'undefined' || !renderer.domElement.captureStream) {
-      statusEl.textContent = '此手機瀏覽器不支援直接錄製，請按「播放」後使用手機內建「螢幕錄影」錄下上方 10 秒畫面！';
+      statusEl.textContent = '此瀏覽器不支援直接錄製，請按「播放」後使用內建「螢幕錄影」錄下上方 10 秒畫面！';
       return;
     }
 
@@ -1150,7 +1163,7 @@ window.addEventListener('error', function(e) {
       a.click();
       isRecording = false; btnRecord.disabled = false;
       if (customAudioSource) { try { customAudioSource.stop(); } catch (_) {} }
-      statusEl.textContent = `匯出成功！若手機無聲音請改用手機「螢幕錄影」錄下上方 10 秒畫面。`;
+      statusEl.textContent = '匯出成功！若手機無聲音請改用手機「螢幕錄影」錄下上方 10 秒畫面。';
     };
 
     recorder.start();
@@ -1186,7 +1199,6 @@ window.addEventListener('error', function(e) {
 
   applyMoodLighting();
   renderPostcardCanvas(1.0);
-  updateStoryboardSheet();
   updateScene(0);
   requestAnimationFrame(animate);
 })();
